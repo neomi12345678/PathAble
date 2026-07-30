@@ -1,10 +1,19 @@
 interface BadgeProps {
   children: React.ReactNode;
+  variant?: "neutral" | "accent" | "primary";
 }
 
-export function Badge({ children }: BadgeProps) {
+const variants = {
+  neutral: "bg-background text-muted border border-border",
+  accent: "bg-accent/90 text-accent-dark shadow-sm",
+  primary: "bg-primary/10 text-primary",
+};
+
+export function Badge({ children, variant = "neutral" }: BadgeProps) {
   return (
-    <span className="rounded-full bg-background px-2 py-1 text-xs text-muted">
+    <span
+      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${variants[variant]}`}
+    >
       {children}
     </span>
   );

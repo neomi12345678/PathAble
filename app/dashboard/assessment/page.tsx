@@ -1,15 +1,28 @@
+import type { Metadata } from "next";
 import { AssessmentForm } from "@/components/assessment/AssessmentForm";
+import { getAssessmentResult } from "@/lib/data";
+import { APP_NAME, ASSESSMENT } from "@/utils/texts";
 
-export default function AssessmentPage() {
+export const metadata: Metadata = {
+  title: `${ASSESSMENT.title} | ${APP_NAME}`,
+  description: ASSESSMENT.subtitle,
+};
+
+export default async function AssessmentPage() {
+  const existing = await getAssessmentResult();
+
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">שאלון אבחון תעסוקתי</h2>
-        <p className="text-muted">
-          דרג כל שאלה מ-1 (בכלל לא) עד 5 (מאוד)
-        </p>
-      </div>
-      <AssessmentForm />
-    </div>
+    <AssessmentForm
+      initialResult={
+        existing
+          ? {
+              summary: existing.summary,
+              strengths: existing.strengths,
+              challenges: existing.challenges,
+              recommendations: existing.recommendations,
+            }
+          : null
+      }
+    />
   );
 }

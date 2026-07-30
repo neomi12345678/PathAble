@@ -1,0 +1,88 @@
+import type { SkillsModule } from "@/types";
+
+export const mockSkillsModules: SkillsModule[] = [
+  {
+    id: "skill-001",
+    title: "אחריות",
+    description: "לקיחת אחריות על משימות והשלמתן בזמן. כולל 5 תרגילים מעשיים.",
+    difficulty: "קל",
+    order_index: 1,
+  },
+  {
+    id: "skill-002",
+    title: "התמדה",
+    description: "המשכיות בעבודה גם כשקשה. תרגולים לבניית סבלנות.",
+    difficulty: "קל",
+    order_index: 2,
+  },
+  {
+    id: "skill-003",
+    title: "תקשורת",
+    description: "העברת מסרים ברורים בכתב ובעל פה.",
+    difficulty: "בינוני",
+    order_index: 3,
+  },
+  {
+    id: "skill-004",
+    title: "ניהול זמן",
+    description: "תכנון יום העבודה ועמידה ביעדים.",
+    difficulty: "בינוני",
+    order_index: 4,
+  },
+  {
+    id: "skill-005",
+    title: "קבלת הוראות",
+    description: "הבנת משימות והבהרת נקודות לא ברורות.",
+    difficulty: "קל",
+    order_index: 5,
+  },
+  {
+    id: "skill-006",
+    title: "ארגון",
+    description: "סידור חומרים, מסמכים ומשימות.",
+    difficulty: "קל",
+    order_index: 6,
+  },
+  {
+    id: "skill-007",
+    title: "שיתוף פעולה",
+    description: "עבודה משותפת עם צוות להשגת מטרות.",
+    difficulty: "בינוני",
+    order_index: 7,
+  },
+  {
+    id: "skill-008",
+    title: "פתרון בעיות",
+    description: "זיהוי בעיות ומציאת פתרונות יצירתיים.",
+    difficulty: "מתקדם",
+    order_index: 8,
+  },
+  {
+    id: "skill-009",
+    title: "ריכוז ומיקוד",
+    description: "שמירה על ריכוז והפחתת הסחות דעת בעבודה.",
+    difficulty: "בינוני",
+    order_index: 9,
+  },
+  {
+    id: "skill-010",
+    title: "התמודדות עם שינויים",
+    description: "גמישות כשמשימות, שגרה או צוות משתנים.",
+    difficulty: "בינוני",
+    order_index: 10,
+  },
+  {
+    id: "skill-011",
+    title: "בקשת עזרה",
+    description: "פנייה לממונה או לעמית בזמן, בצורה ברורה ומקצועית.",
+    difficulty: "קל",
+    order_index: 11,
+  },
+  {
+    id: "skill-012",
+    title: "רגישות חושית",
+    description: "התמודדות עם רעש, תאורה ועומס חושי בסביבת העבודה.",
+    difficulty: "בינוני",
+    order_index: 12,
+  },
+];

@@ -1,29 +1,18 @@
-import { ProfessionCard } from "@/components/professions/ProfessionCard";
-import { getMockProfessions, getMockSavedProfessionIds } from "@/lib/mock/api";
+import type { Metadata } from "next";
+import { ProfessionsCatalog } from "@/components/professions/ProfessionsCatalog";
+import { APP_NAME, PROFESSIONS } from "@/utils/texts";
+import { getProfessions, getSavedProfessionIds } from "@/lib/data";
+
+export const metadata: Metadata = {
+  title: `${PROFESSIONS.title} | ${APP_NAME}`,
+  description: "מאגר מקצועות מותאם אישית",
+};
 
 export default async function ProfessionsPage() {
   const [professions, savedIds] = await Promise.all([
-    getMockProfessions(),
-    getMockSavedProfessionIds(),
+    getProfessions(),
+    getSavedProfessionIds(),
   ]);
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">מאגר מקצועות</h2>
-        <p className="text-muted">
-          {professions.length} מקצועות זמינים
-        </p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {professions.map((profession) => (
-          <ProfessionCard
-            key={profession.id}
-            profession={profession}
-            isSaved={savedIds.includes(profession.id)}
-          />
-        ))}
-      </div>
-    </div>
-  );
+  return <ProfessionsCatalog professions={professions} savedIds={savedIds} />;
 }

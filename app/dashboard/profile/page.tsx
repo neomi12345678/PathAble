@@ -1,73 +1,96 @@
-import { Badge } from "@/components/ui/Badge";
-import { Card } from "@/components/ui/Card";
+import type { Metadata } from "next";
+import { ProfileSettings } from "@/components/profile/ProfileSettings";
 import {
-  getMockAssessmentResult,
-  getMockProfessions,
-  getMockSavedProfessionIds,
-  getMockUserProgress,
-} from "@/lib/mock/api";
-import { mockProfile } from "@/lib/mock/profile";
+  getAssessmentResult,
+  getProfile,
+  getProfileExtrasData,
+  getProfessions,
+  getSavedProfessionIds,
+  getUserProgress,
+} from "@/lib/data";
+import { IMAGES } from "@/lib/assets/images";
+import {
+  isValidAvatarId,
+  resolvePresetAvatarUrl,
+  type ProfileAvatarId,
+} from "@/lib/profile-avatar";
+import { getDiagnosisLabel } from "@/lib/user-profile";
+import { getUserProfilePrefsAsync } from "@/lib/user-profile.server";
+import { APP_NAME, PROFILE } from "@/utils/texts";
+
+export const metadata: Metadata = {
+  title: `${PROFILE.title} | ${APP_NAME}`,
+  description: PROFILE.subtitle,
+};
+
+function computeCompletion(
+  hasOnboarding: boolean,
+  hasAssessment: boolean,
+  hasProgress: boolean,
+  hasSaved: boolean
+): number {
+  let score = 0;
+  if (hasOnboarding) score += 25;
+  if (hasAssessment) score += 25;
+  if (hasProgress) score += 25;
+  if (hasSaved) score += 25;
+  return score;
+}
 
 export default async function ProfilePage() {
-  const [assessment, savedIds, professions, progress] = await Promise.all([
-    getMockAssessmentResult(),
-    getMockSavedProfessionIds(),
-    getMockProfessions(),
-    getMockUserProgress(),
-  ]);
+  const [prefs, profile, extras, assessment, savedIds, professions, progress] =
+    await Promise.all([
+      getUserProfilePrefsAsync(),
+      getProfile(),
+      getProfileExtrasData(),
+      getAssessmentResult(),
+      getSavedProfessionIds(),
+      getProfessions(),
+      getUserProgress(),
+    ]);
 
-  const savedProfessions = professions.filter((p) =>
-    savedIds.includes(p.id)
+  const disabilityDisplay = prefs
+    ? getDiagnosisLabel(prefs)
+    : profile?.disability_type ?? "";
+
+  const savedProfessions = professions.filter((p) => savedIds.includes(p.id));
+  const roleLine =
+    savedProfessions[0]?.name ??
+    assessment?.recommendations[0] ??
+    "מחפש/ת הזדמנויות תעסוקתיות";
+
+  const completionPercent = computeCompletion(
+    Boolean(prefs?.onboardingComplete),
+    Boolean(assessment?.summary),
+    progress.length > 0,
+    savedProfessions.length > 0
   );
 
+  const avatarId: ProfileAvatarId | undefined =
+    prefs?.avatar && isValidAvatarId(prefs.avatar) ? prefs.avatar : undefined;
+  const avatarUrl =
+    avatarId && avatarId !== "custom"
+      ? resolvePresetAvatarUrl(avatarId)
+      : IMAGES.profileAvatar;
+
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <h2 className="text-2xl font-bold">אזור אישי</h2>
-
-      <Card>
-        <h3 className="font-bold">פרטים אישיים</h3>
-        <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-          <p>
-            שם: {mockProfile.first_name} {mockProfile.last_name}
-          </p>
-          <p>גיל: {mockProfile.age}</p>
-          <p>עיר: {mockProfile.city}</p>
-          <p>מגזר: {mockProfile.sector}</p>
-          <p>מוגבלות: {mockProfile.disability_type}</p>
-          <p>אימייל: {mockProfile.email}</p>
-        </div>
-      </Card>
-
-      <Card>
-        <h3 className="font-bold">תוצאות אבחון</h3>
-        <p className="mt-2 text-sm text-muted">{assessment.summary}</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {assessment.recommendations.map((rec) => (
-            <Badge key={rec}>{rec}</Badge>
-          ))}
-        </div>
-      </Card>
-
-      <Card>
-        <h3 className="font-bold">מקצועות שמורים</h3>
-        <ul className="mt-2 space-y-1 text-sm">
-          {savedProfessions.map((p) => (
-            <li key={p.id}>★ {p.name}</li>
-          ))}
-        </ul>
-      </Card>
-
-      <Card>
-        <h3 className="font-bold">התקדמות</h3>
-        <ul className="mt-2 space-y-2 text-sm">
-          {progress.map((item) => (
-            <li key={item.id}>
-              {item.module_type === "learning" ? "📚" : "💪"}{" "}
-              {item.progress}% {item.completed ? "✓" : ""}
-            </li>
-          ))}
-        </ul>
-      </Card>
-    </div>
+    <ProfileSettings
+      data={{
+        firstName: profile?.first_name ?? "",
+        lastName: profile?.last_name ?? "",
+        email: profile?.email ?? "",
+        phone: profile?.phone ?? "",
+        city: profile?.city ?? "",
+        sector: (prefs?.sector as string) ?? profile?.sector ?? "",
+        disabilityType: disabilityDisplay,
+        bio: extras.bio,
+        roleLine,
+        completionPercent,
+        avatarUrl,
+        avatarId,
+        skills: extras.skills,
+        interests: extras.interests,
+      }}
+    />
   );
 }

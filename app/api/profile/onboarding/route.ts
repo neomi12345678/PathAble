@@ -1,0 +1,179 @@
+import { NextResponse } from "next/server";
+
+import { z } from "zod";
+
+import {
+
+  AUTISM_LEVELS,
+
+  DIAGNOSIS_OPTIONS,
+
+  type UserProfilePrefs,
+
+} from "@/lib/user-profile";
+
+import { getAuthUser } from "@/lib/data/auth";
+
+import {
+
+  getProfilePrefsForUser,
+
+  updateProfileOnboarding,
+
+} from "@/lib/data/profile";
+
+
+
+const diagnosisEnum = z.enum(
+
+  DIAGNOSIS_OPTIONS as unknown as [string, ...string[]]
+
+);
+
+
+
+const autismLevelEnum = z.enum(
+
+  AUTISM_LEVELS as unknown as [string, ...string[]]
+
+);
+
+
+
+const bodySchema = z
+
+  .object({
+
+    sector: z.string().min(1),
+
+    disability_type: diagnosisEnum,
+
+    autism_level: autismLevelEnum.optional(),
+
+  })
+
+  .superRefine((data, ctx) => {
+
+    if (data.disability_type === "אוטיזם" && !data.autism_level) {
+
+      ctx.addIssue({
+
+        code: "custom",
+
+        message: "יש לבחור רמת תפקוד לאוטיזם",
+
+        path: ["autism_level"],
+
+      });
+
+    }
+
+    if (data.disability_type !== "אוטיזם" && data.autism_level) {
+
+      ctx.addIssue({
+
+        code: "custom",
+
+        message: "רמת תפקוד רלוונטית רק לאוטיזם",
+
+        path: ["autism_level"],
+
+      });
+
+    }
+
+  });
+
+
+
+export async function POST(request: Request): Promise<NextResponse> {
+
+  try {
+
+    const json: unknown = await request.json();
+
+    const parsed = bodySchema.safeParse(json);
+
+
+
+    if (!parsed.success) {
+
+      return NextResponse.json(
+
+        { error: "יש לבחור מגזר, אבחנה ורמת תפקוד (לאוטיזם)" },
+
+        { status: 400 }
+
+      );
+
+    }
+
+
+
+    const user = await getAuthUser();
+
+    if (!user) {
+
+      return NextResponse.json(
+
+        { error: "יש להתחבר כדי לשמור את הפרופיל" },
+
+        { status: 401 }
+
+      );
+
+    }
+
+
+
+    const profileInput: UserProfilePrefs = {
+
+      sector: parsed.data.sector,
+
+      disability_type: parsed.data.disability_type,
+
+      autism_level:
+
+        parsed.data.disability_type === "אוטיזם"
+
+          ? (parsed.data.autism_level as UserProfilePrefs["autism_level"])
+
+          : undefined,
+
+      onboardingComplete: true,
+
+    };
+
+
+
+    const existing = await getProfilePrefsForUser(user.id);
+
+    const profile = await updateProfileOnboarding(
+      user.id,
+      {
+        ...profileInput,
+        avatar: existing?.avatar,
+      },
+      user.email
+    );
+
+    const res = NextResponse.json({ ok: true, profile });
+    res.cookies.set("pathable_onboarded", "1", {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 120,
+    });
+    return res;
+
+  } catch (err) {
+
+    const message = err instanceof Error ? err.message : "שגיאה בשמירת הפרופיל";
+
+    return NextResponse.json({ error: message }, { status: 500 });
+
+  }
+
+}
+
+

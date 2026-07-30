@@ -1,0 +1,51 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+const ASSETS = [
+  // courses
+  ["public/images/courses/coding.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuBXhFimqcYvz38EZbQ_3nxY6HOABBc_uLy7-MzEMZD7uey0Uf0DKhH24F833i5rNmnXKKtwLWdrXRS-ve8Qwg3KAsJamXykis-OegB-H7-f_v0sPifbsoh1KqmerNFvV7E5KKt56yg6OJec2rMU5xTXPzRG5QHT82v6QPSVoUrJLkyunX87a9bX0aWtr0BZ7sdBxOQGPB7D6X_vHDlAOpuph-ThJk9A9rnYpKk_Kys8O7-an7j0Z7RohMJ2QGUd4Q51y5KGpSZTAuvS"],
+  ["public/images/courses/ux-design.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuBTKwUGKW7NNEUcK5QJYJ0ZmS3Y7qGAH7RizmvXZvOPPwa3K6rE368J5mkQDHnL2o1_AEuMoLbFJc9DpTe_nI8sagAf6PSggxDYGGEJnh_hNrAwYJroch72GusC1_fx7uMf5WTRc6I1bfVsgntcsVaS1O9yjqLTHbvBrLNVvkI63OC5TLZv9NDH5-yqgb9YqPUUdIBscyZeDhi4bDAdQiOsIrPeMFq9OcEDk4mx41p9EzUNi-xqwjZMyQZArva2GN3ZMthm1mVQVFgq"],
+  ["public/images/courses/data.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuBhBb0tlc21S4STu3bAHBomAFxTA_7atrOb3rzaIaAvJT5pgA8Q-Y3Z63GiHBRfAc7gOVUqCNCxzHQa4IDd5LHsUVKwSycJCkNJYrjw-ma2cBGOs8NZm8J5I6_IMYX5pD9hA0BZYXH7ahaQ8iME3_hXHaKfmKcu6Ph7067WWiCrvOnwElEX9RjUaQb4i-lyNL80-DG3PRmvwS1x23yq0jhlZa1QhBXDIsWh_RbvlDNC2FDOq7m6ZogCZTu9MorsaS4aoSiyNUdWtazd"],
+  ["public/images/courses/interview.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuDgfm0HTAdzWtka5EKwsktYpookL4oVASupcjQnmSjd3Za43BcNsSoojxZRR4miZjcXGe7aMDz0LQxVa8RlxYCzB2NA3fOdmZsrjn3aCm0KSGk4x6XcLm4mP41BGIw_KBLaLGTjWHV1sYR9dbmPvb1hatRZstSqyBJV3gHLWwV0anyH7WXP-SParIlxTskDmWHzfO7Jf6iAEyEW45SbZcG3GwPv2BhB9Xrx8Qwh3Pvt4-a5NExCuT3zVWLOiimh_a7YzvxBmhvms8Pq"],
+  ["public/images/courses/office.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuDmR6N3muMeOv7lFHScKePe97fZNPaiA11Z5p6ZnPZecT4cydjZFW3G62WO-cmizLgzKmUYi5HUY75ZuPaO7n1pBb_aImfk5P6LZR9cKJwQfWUaQMiYCsNhuZOb7o-cI4j8Xm4pt3nKDnCGxc_S9yQ9e2UDkiKXeiBVkmVsQdd_U2--p6HCK89ruCwOKHH3tOBhTNZZ-Vb262LR2vrrWkWp5d3QXX3uK4zqO5DcHyrg2kyeM4CPLePQXAMxYeY0mWrS_HjB9W5Sgobo"],
+  ["public/images/courses/teamwork.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuBM4lsJQvq-HgGykK6GEc82xtudR2Ug8g7TD7xvfhPi8C8c3fIlX5z36_SCa1b4opMKrKKq0mwe96bYyNYO7vBlW1GCz1Fb5Fmir8A4Ubsrd4blL7M_6C1aZVtG8YIDgV0aFZ0iViTJXBOPGTTxGm6looQrQinQbvAt9dF1rESeO1ziP7yoRJc7qVzoebQwvDFCJc4kgXNqO24WVmEy_WVbavZZ--HmQoc9oONNBavxKiMaYyjecWuSto-xlc4Xv-qJ_0Dk3ZzjFpjo"],
+  ["public/images/courses/feedback.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuA2OhEUqBSo7CcR93kv17ghqkNkc2SE-3cYQC9gu-f8_6s-yih6x0lQJVEBlXCnyeQXtdjSt-itbcukRV3TeUNaCXnVcAiTLZYXwJHEOeGj5NcAIFxzlSBso3fqCh9Nh6qpgSj1aC7GnTnrZFMUVGrdhUj23LILbM497mnoe54XXysR4Nets0OTCplSAGCMWJgm2SckYn6r9hntHSChSF6E-8amBReUzJ8b6r9SSNoLru6-VSxFJv4XEqTQvsbt_ViEjUX8ozk4sn2i"],
+  ["public/images/courses/time-management.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuCJTzdOjXGetv4xdlwVI1XbGeBxXAKzKYbYhbwP_esw7vX-PmWKrubxrI0nOt6WsHlbekU9ODLZ3YcNUsS1taMhB7ltbAxmgYl0UCzhUB33L3l3lWpqgWF1JGc5gT2WlKxrDwX-WT9CLq5X_0Xi3uxuDZYY32wBhE0fxVRXqhinuk-XVD6cOjnNzieHrofgOznA3msujHM52paXeu3Xd3RERgABKGCeZRpHvudaaZcQKkcLp0kJuKclpegMy5Jdu6eEEvFdisixn7aX"],
+  ["public/images/courses/customer-service.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuDgDfdJnN2YoefFZtPTSg3KuSxIQm-HR4oiq6l50JNrxI86PIDfb4shm3h11VqObxM1hjZ_kYwJ45W8xMBtCUKqfGHdTDLIX-B1kjM4hhtinrHKM-5Bh6etOAnj_yE6-e-Rdk_xrizSxZ777RMGmrA8JQXwmXsxSjxAsd019yCKPmcqmYnjgnYZB7cluUoluBqiVCd37JoYZs2XadtUZc8TuKeaxk_l7w7ik3wTvxy86sbY8zXgnm0ezFaplYeOnC9RDVRsk0xiJS6p"],
+  // professions
+  ["public/images/professions/ux.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuAx-ML1oS9t6PLBEB3dUAbzm3RO9wVtvIEhb-rAgyoG0UrKEcE22SkPQBMc9Pe2NFtaqSovx0qeNFu-WkKonZtVTbbEUW8ns8RiRaNYqQB_hsiobU9gIs-Lp1fcK4XKZs73bFilV5D5PuqwdVsm5ifQSCBztQFY5lwkfqSAf9iQFOuPLlS_36Kad6ElHDAD06hlsTASeuREPaL0_JpteYygaM40EP5xhbUwt3zD2v6r7b4OS1-rQHRs0qdLBfSJAclfbBNGXbYgEL8c"],
+  ["public/images/professions/data.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuDB77qP8OJQ55Cgpgnl6BwMYpZzC2j4CIbE79766JEMnJ5uEG0enLOWdnvUxp2fTb2OhkxImsBr2rC4h6RTmXSdoy-w_5ekpY8K3sJcdpg8AIGEMROPcSpCeQdWQLb1O8PwmEmd0YcgZM2b8F4DwagBPmyXni7-QDwdYGItWZaq5aRQkiBqbpGg4i4KJpc_UETgWyjh95-3SqF9TojyO6LKASmS3GVrw2nxpJVCRODP3MN4cHIRgANVcM3rX9ddCUMALk6m509Ceo7u"],
+  ["public/images/professions/marketing.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuA4mFUWRYgmDYxMx5QlYDI0R1XJSihYM2eIgzGj2-D65C4mYRWNwRU1kNfsOL8fRbIvQpp60lCVun5mGlnhEvh3vd3qi3RWa_bqH50W_6oj2WOWAQxt_FIqOp6uNNlEONWKizaZ95fsvldPrxsF4r0Ropw3YnLpHpBO_iArzz3Ql_dI6ACCgoJv24uZm97bTWpRy1jUQQ5E-rE0GCCHbxeI4bM1heykj6F8mHBPWkLujqIr1qyoFiFkNvmjC819ul12fU7nFzrOJ8eZ"],
+  ["public/images/professions/tech.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuBJGWjgfK-Otl08smmZMkGDTslYC4TQOiXbrVNvdXfChu7I10ZJk_WRwS2k-5k0wraEOwaGC56FT-g3eTQdVLOmw_JFpQ6Q_MzfvJwoORrnZxo5r0N-eqY5KSbNW4S_Ef0h7qXqqpxpy_CJ4uCYFB3-k8dHgiA7yNmLTL_WM3n9YkzRkYSsOgSTeFzZiBPPJ-Wos1b4AU_g1rtFh0Nz95nxqqpImrwxplC_8basGjpbGqYe3zi9NQym7e9sUsYQN_c3sjhWiFRwvMa5"],
+  // ui
+  ["public/images/ui/profile-avatar.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuCkMw48-E5z4oV2kYIrudakPRpTwOOmhaUgrzxpB7kG434oXkjWeNAI94ORxiSXeyfuQcKJbFW_WWrUgXIPCtdos4iB5y7KGPQV9bUSzHCb_yGGD2OExa8PwassO6vywGOuXj7AO2ok0YFjD-0k8r9c108qJUmvtA0zSQySOcRaalET8nlQAcX3kNF1mnk9U6jisHyR5YRT6nKQ_CEDUuEjJsv4Rea_AlOU6BsBvNRYPd-wYzpmhnTgDEsaZ8QLMqKmGu2TDuW5WTnd"],
+  ["public/images/ui/login.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuBzFLQ7Dxprd5DRCFieuTuqPApyVSyG7C6m0iaBY7jXZkgag2xPHLJnHtzCqjFlhNnRQm53JqZLjcFiyiLkSpbl6yZORzYxJ_sennqbCHV_UGULCvNaROUk2qantqX_Oa54mn4WXaRoNIqArO5IpaCNLAukP5N99JIeYNb_pnKujHH6qXyIou6ejhFNo-rVoJSFehTEzbhgCuQ6Bp2cFAbt6GHoY-W5IfWLeE7T2y6xsDwHQoHv8jRkfC0GcSWfglC7z81AqkqV-uGC"],
+  ["public/images/ui/mentor.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuD2D23LBuIWYV4tF-X2hly06GzGMeQKzwAPrKriRqkPAVscImB8Pq8T2YYZFX8ewm2xZLxxxcgMgoEEUGAvtIKV_9F0gBZte0yR_P6ppXHdlZUNRW3iNjpNZEfwAGjtzVWXmSmNaZWfZEALaJXAEQqoHp6pslY8M6mQ879EBTJAZXHwVbT53p08_69o-EWYD0GXh37nA16H6473OiSQsWE-8TRJaWJQsoGYF38KnsjVD3ddsEKkgGOl9pACwcf7jnbEE42fAqGynpTp"],
+  ["public/images/ui/ai-avatar.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuCeuAoiRJSg-0zf2SCECjSTjYQRg6evyKNLsHxfd9s6ODC5IcMPzDWE9EFkRZgECp8VyH0oGq1O12YBD3eXxd3E1zdMuiSViECOHeSDmT0H9ivUk5aEM0iaVL4vUV6YNcrBh_qWhpd4JOgWXNzy1QCOAPrMgWpH2dzMuyCGjvyuo3yNvHq04eArlnVtnwD2mWIqpufpFYtauAV7qIV4fHgqEp1vfXOtustdSI_KwMHst59jz0cNOmfoCRdQKkFsyyqAkfb7qNtXp4mG"],
+  ["public/images/ui/learning-feature.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuBXhFimqcYvz38EZbQ_3nxY6HOABBc_uLy7-MzEMZD7uey0Uf0DKhH24F833i5rNmnXKKtwLWdrXRS-ve8Qwg3KAsJamXykis-OegB-H7-f_v0sPifbsoh1KqmerNFvV7E5KKt56yg6OJec2rMU5xTXPzRG5QHT82v6QPSVoUrJLkyunX87a9bX0aWtr0BZ7sdBxOQGPB7D6X_vHDlAOpuph-ThJk9A9rnYpKk_Kys8O7-an7j0Z7RohMJ2QGUd4Q51y5KGpSZTAuvS"],
+  ["public/images/ui/profession-hero.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuBJGWjgfK-Otl08smmZMkGDTslYC4TQOiXbrVNvdXfChu7I10ZJk_WRwS2k-5k0wraEOwaGC56FT-g3eTQdVLOmw_JFpQ6Q_MzfvJwoORrnZxo5r0N-eqY5KSbNW4S_Ef0h7qXqqpxpy_CJ4uCYFB3-k8dHgiA7yNmLTL_WM3n9YkzRkYSsOgSTeFzZiBPPJ-Wos1b4AU_g1rtFh0Nz95nxqqpImrwxplC_8basGjpbGqYe3zi9NQym7e9sUsYQN_c3sjhWiFRwvMa5"],
+  ["public/images/ui/profession-workstation.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuBfxMc9koA9yp7Vf0FOS4JFGmE9vjfUcwbfGK4gpuzwNSDLrXJCu6rwGsMMnyWQnIy9kbYAgPrlFOr38tgD2DRTYgr1y9ltHXpC4Y81xhCa7aqN9xLABM8AWTDQb73agVzqf7iIKEN-Yln1NI6yPiKesux_uCo1nCGxZEY6py6Wu4rNJ4USCGKZgtYEwQ2_6-MMoREcJ3_e9My75qpx6x8VtOBWHsQ_xHGscbc-pl8kE2mTPcWjwKHlEbPgKL5erljHC4tH-V0d19bW"],
+  ["public/images/ui/rights-guide.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuDgfm0HTAdzWtka5EKwsktYpookL4oVASupcjQnmSjd3Za43BcNsSoojxZRR4miZjcXGe7aMDz0LQxVa8RlxYCzB2NA3fOdmZsrjn3aCm0KSGk4x6XcLm4mP41BGIw_KBLaLGTjWHV1sYR9dbmPvb1hatRZstSqyBJV3gHLWwV0anyH7WXP-SParIlxTskDmWHzfO7Jf6iAEyEW45SbZcG3GwPv2BhB9Xrx8Qwh3Pvt4-a5NExCuT3zVWLOiimh_a7YzvxBmhvms8Pq"],
+  ["public/images/ui/coach.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuBWMT2ZbTfhvJCZMxNuFtLCjI7_NA7M1BvKi4cfEgcYgldbpJVeu42v07YCsRJ8L4Rd7N-6OmqUwYGkyAsFfVueGgao6ugKEADqqNmzfvfmCYWjOgypj4Awxtenjx7tx7Vz-xFsUBDFUcBJlDJPjIyCACSOkB9RwfYx15bjGySX-Jn5-EBF2w2M15NPt0qrmUshq9APAgo2MVS6J0Q1VFTirkFzmxfsEC7Ia2ZXko4TuGMCg-3_Ft1bENr6YY5eV4beZi1GqmAGpuY4"],
+  ["public/images/ui/skills-portrait.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuClUxnnCfQXQ2fwuuylad1u4f09iVfNFpTqZV9aVBRpbsw6vHj6775AbJ8vVU_uw0Q2M_DymY8F95piJZzsCQhSrX0bdh7E7NFYXU04peA5NwHjtzFsotMeF2v1EzWYwlbtNxpYdd-OgAOcNUJoEOtWshwWmh0mVEzTx88JEmJaljRiaWvLQ1YhZlyP_KGrrWswruvSDxs5KhUdMEdTX8Rkv_XG7ZIg24oiFpTQGkMMd1Xt5XBaQ0quc-uK5TCNA7MMWwG_22Trvg-i"],
+  ["public/images/ui/admin-avatar.png", "https://lh3.googleusercontent.com/aida-public/AB6AXuAAYH9c1TLPLFxLQwdSmTAD6nPHeau0VAygY6jpAwG-x3tR2paZSOvurfwA11TX5xTKaFWyCGlV7RfBfcjMrFqadOIM6bCG42_Dd0Rz6yxZV_KBuOYMvv8g2ZJlpLc8He-uGR_uSQ_7oZKqZe8k6aPyv_ZI-qr7RUUwgIPHfWlU82ZUdMnjc0LTwGeU85Y5ibdCg8wtnl-2GDvLuU63lPw4lEN98Yf7w9Xi9ITa1IGlFlNJ0HQzQwYT4SrUZ4IFhoLNeAVl4iviwtfV"],
+];
+
+async function download(dest, url) {
+  const fullPath = path.join(root, dest);
+  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${res.status} ${url}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  fs.writeFileSync(fullPath, buf);
+  console.log(`OK ${dest} (${buf.length} bytes)`);
+}
+
+for (const [dest, url] of ASSETS) {
+  await download(dest, url);
+}
+
+console.log(`Downloaded ${ASSETS.length} images.`);

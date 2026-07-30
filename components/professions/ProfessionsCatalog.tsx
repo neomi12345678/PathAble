@@ -1,0 +1,407 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import type { Profession } from "@/types";
+import { ProfessionCard } from "@/components/professions/ProfessionCard";
+import { getProfessionMatchScore } from "@/lib/disability-matching";
+import { useUserProfile } from "@/hooks/useUserProfile";
+
+const PAGE_SIZE = 9;
+
+const CATEGORY_BY_ID: Record<string, string> = {
+  "prof-001": "טכנולוגיה ודיגיטל",
+  "prof-004": "טכנולוגיה ודיגיטל",
+  "prof-005": "טכנולוגיה ודיגיטל",
+  "prof-010": "טכנולוגיה ודיגיטל",
+  "prof-012": "טכנולוגיה ודיגיטל",
+  "prof-002": "עיצוב ויצירה",
+  "prof-006": "עיצוב ויצירה",
+  "prof-007": "עיצוב ויצירה",
+  "prof-013": "עיצוב ויצירה",
+  "prof-014": "עיצוב ויצירה",
+  "prof-003": "מנהלה ופיננסים",
+  "prof-008": "מנהלה ופיננסים",
+  "prof-009": "חינוך וקהילה",
+  "prof-011": "חינוך וקהילה",
+  "prof-015": "מקצועות יד",
+  "prof-016": "טכנולוגיה ודיגיטל",
+  "prof-018": "טכנולוגיה ודיגיטל",
+  "prof-025": "טכנולוגיה ודיגיטל",
+  "prof-017": "עיצוב ויצירה",
+  "prof-019": "עיצוב ויצירה",
+  "prof-026": "עיצוב ויצירה",
+  "prof-020": "מנהלה ופיננסים",
+  "prof-024": "מנהלה ופיננסים",
+  "prof-021": "חינוך וקהילה",
+  "prof-022": "חינוך וקהילה",
+  "prof-023": "מקצועות יד",
+  "prof-027": "מקצועות יד",
+};
+
+const CATEGORIES = [
+  "טכנולוגיה ודיגיטל",
+  "עיצוב ויצירה",
+  "מנהלה ופיננסים",
+  "חינוך וקהילה",
+  "מקצועות יד",
+];
+
+type SortKey = "match" | "salary" | "demand";
+
+function getCategory(id: string): string {
+  return CATEGORY_BY_ID[id] ?? "אחר";
+}
+
+function getSalaryAvg(range: string): number {
+  const nums = range.replace(/[,]/g, "").match(/\d+/g);
+  if (!nums || nums.length === 0) return 0;
+  const values = nums.map(Number);
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+function getDemandScore(profession: Profession): number {
+  return profession.skills.length;
+}
+
+interface ProfessionsCatalogProps {
+  professions: Profession[];
+  savedIds: string[];
+}
+
+export function ProfessionsCatalog({
+  professions,
+  savedIds,
+}: ProfessionsCatalogProps) {
+  const [search, setSearch] = useState("");
+  const [activeCategories, setActiveCategories] = useState<Set<string>>(
+    new Set()
+  );
+  const [minMatch, setMinMatch] = useState(0);
+  const [sort, setSort] = useState<SortKey>("match");
+  const [page, setPage] = useState(1);
+
+  const [onlyMyDiagnosis, setOnlyMyDiagnosis] = useState(false);
+  const { diagnosis, autismLevel, diagnosisLabel, loading: profileLoading } =
+    useUserProfile();
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const result = professions
+      .map((p) => ({
+        profession: p,
+        match: getProfessionMatchScore(p, diagnosis, autismLevel),
+        salary: getSalaryAvg(p.salary_range),
+        demand: getDemandScore(p),
+        category: getCategory(p.id),
+        fitsDiagnosis: p.disability_fit.includes(diagnosis),
+      }))
+      .filter((item) => {
+        if (onlyMyDiagnosis && !item.fitsDiagnosis) return false;
+        if (item.match < minMatch) return false;
+        if (
+          activeCategories.size > 0 &&
+          !activeCategories.has(item.category)
+        ) {
+          return false;
+        }
+        if (q) {
+          const haystack = [
+            item.profession.name,
+            item.profession.description,
+            ...item.profession.skills,
+          ]
+            .join(" ")
+            .toLowerCase();
+          if (!haystack.includes(q)) return false;
+        }
+        return true;
+      });
+
+    result.sort((a, b) => {
+      if (sort === "salary") return b.salary - a.salary;
+      if (sort === "demand") return b.demand - a.demand;
+      return b.match - a.match;
+    });
+
+    return result;
+  }, [professions, search, activeCategories, minMatch, sort, diagnosis, autismLevel, onlyMyDiagnosis]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const visible = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  const toggleCategory = (cat: string): void => {
+    setActiveCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+    setPage(1);
+  };
+
+  const clearFilters = (): void => {
+    setActiveCategories(new Set());
+    setMinMatch(0);
+    setSearch("");
+    setPage(1);
+  };
+
+  return (
+    <div className="flex flex-col gap-6 text-right">
+      <header className="flex flex-col items-center gap-4 text-center">
+        <div className="space-y-2">
+          <span className="inline-block rounded-full bg-primary-container/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-primary-container">
+            גלה את העתיד שלך
+          </span>
+          <h1 className="font-display text-2xl font-black leading-tight text-on-surface md:text-3xl">
+            מצא את הייעוד המקצועי שלך
+          </h1>
+          <p className="mx-auto max-w-xl text-sm text-on-surface-variant">
+            מקצועות מותאמים לאבחנה שלך:{" "}
+            <span className="font-black text-primary">
+              {profileLoading ? "..." : diagnosisLabel}
+            </span>
+          </p>
+        </div>
+        <div className="search-container relative w-full max-w-xl">
+          <span className="material-symbols-outlined pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xl text-outline">
+            search
+          </span>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder="מה תרצה להיות כשתהיה גדול?..."
+            aria-label="חיפוש מקצוע"
+            className="glass-card h-11 w-full rounded-2xl border-none pl-24 pr-11 text-base font-medium outline-none placeholder:text-outline-variant focus:ring-0"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setPage(1);
+              }}
+              aria-label="נקה חיפוש"
+              className="absolute left-28 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-outline transition-colors hover:bg-slate-100"
+            >
+              <span className="material-symbols-outlined text-lg">close</span>
+            </button>
+          )}
+          <span className="absolute left-3 top-1/2 flex h-10 -translate-y-1/2 items-center justify-center rounded-2xl bg-primary-container px-6 text-sm font-bold text-white shadow-md">
+            חיפוש
+          </span>
+        </div>
+      </header>
+
+      <div className="flex flex-col gap-10 lg:flex-row-reverse">
+        <aside className="w-full shrink-0 lg:w-80">
+          <div className="glass-card sticky top-28 rounded-[2rem] p-8">
+            <div className="mb-8 flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-xl font-black">
+                <span className="material-symbols-outlined text-primary-container">
+                  tune
+                </span>
+                מסננים
+              </h3>
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-sm font-bold text-primary-container hover:underline"
+              >
+                נקה
+              </button>
+            </div>
+
+            <div className="mb-10">
+              <p className="mb-5 text-xs font-black uppercase tracking-widest text-outline">
+                התאמה לאבחנה
+              </p>
+              <label className="group flex cursor-pointer flex-row-reverse items-center justify-end gap-3">
+                <span className="font-bold text-on-surface/80 transition-colors group-hover:text-primary-container">
+                  רק מקצועות שמתאימים ל-{diagnosisLabel}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={onlyMyDiagnosis}
+                  onChange={(e) => {
+                    setOnlyMyDiagnosis(e.target.checked);
+                    setPage(1);
+                  }}
+                  className="h-5 w-5 rounded-md border-outline-variant text-primary-container focus:ring-primary-container/20"
+                />
+              </label>
+            </div>
+
+            <div className="mb-10">
+              <p className="mb-5 text-xs font-black uppercase tracking-widest text-outline">
+                תחומי עניין
+              </p>
+              <div className="space-y-4">
+                {CATEGORIES.map((cat) => (
+                  <label
+                    key={cat}
+                    className="group flex cursor-pointer flex-row-reverse items-center justify-end gap-3"
+                  >
+                    <span className="font-bold text-on-surface/80 transition-colors group-hover:text-primary-container">
+                      {cat}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={activeCategories.has(cat)}
+                      onChange={() => toggleCategory(cat)}
+                      className="h-5 w-5 rounded-md border-outline-variant text-primary-container focus:ring-primary-container/20"
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-10">
+              <p className="mb-5 text-xs font-black uppercase tracking-widest text-outline">
+                אחוז התאמה מינימלי
+              </p>
+              <div className="px-2">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={minMatch}
+                  onChange={(e) => {
+                    setMinMatch(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  aria-label="רמת התאמה מינימלית"
+                  className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-secondary-container"
+                />
+                <div className="mt-3 flex justify-between text-xs font-bold text-outline">
+                  <span>0%</span>
+                  <span className="rounded-md bg-primary-container/10 px-2 py-0.5 text-primary-container">
+                    {minMatch}%+
+                  </span>
+                  <span>100%</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setPage(1)}
+              className="w-full rounded-2xl bg-on-surface py-4 text-sm font-black text-white shadow-lg transition-all hover:scale-[1.02] active:scale-95"
+            >
+              הצג תוצאות
+            </button>
+          </div>
+        </aside>
+
+        <section className="flex-grow">
+          <div className="mb-8 flex flex-wrap items-center justify-between gap-4 px-2">
+            <p className="font-bold text-outline">
+              נמצאו{" "}
+              <span className="text-on-surface">{filtered.length}</span> מסלולים
+              מתאימים
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-outline">מיין לפי:</span>
+              <select
+                value={sort}
+                onChange={(e) => {
+                  setSort(e.target.value as SortKey);
+                  setPage(1);
+                }}
+                className="cursor-pointer border-none bg-transparent text-sm font-black text-on-surface focus:ring-0"
+              >
+                <option value="match">התאמה גבוהה</option>
+                <option value="salary">שכר ממוצע</option>
+                <option value="demand">ביקוש בשוק</option>
+              </select>
+            </div>
+          </div>
+
+          {visible.length > 0 ? (
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {visible.map((item) => (
+                <ProfessionCard
+                  key={item.profession.id}
+                  profession={item.profession}
+                  isSaved={savedIds.includes(item.profession.id)}
+                  match={item.match}
+                  diagnosisLabel={diagnosisLabel}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="glass-card flex flex-col items-center gap-4 rounded-[2rem] px-8 py-24 text-center">
+              <span className="material-symbols-outlined text-6xl text-outline-variant">
+                search_off
+              </span>
+              <h3 className="font-display text-2xl font-black text-on-surface">
+                לא נמצאו מסלולים מתאימים
+              </h3>
+              <p className="max-w-sm text-on-surface-variant">
+                נסה לשנות את מילות החיפוש או להרחיב את הסינון כדי לגלות עוד
+                אפשרויות.
+              </p>
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="mt-2 rounded-2xl bg-primary-container px-8 py-3 text-sm font-black text-white shadow-lg transition-all hover:brightness-110 active:scale-95"
+              >
+                נקה את כל המסננים
+              </button>
+            </div>
+          )}
+
+          {totalPages > 1 && (
+            <nav className="mt-20 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                aria-label="הקודם"
+                className="flex h-12 w-12 items-center justify-center rounded-2xl text-outline transition-all hover:bg-white hover:shadow-md disabled:opacity-40"
+              >
+                <span className="material-symbols-outlined rotate-180">
+                  chevron_left
+                </span>
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPage(p)}
+                  aria-current={p === currentPage ? "page" : undefined}
+                  className={
+                    p === currentPage
+                      ? "flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-container font-black text-white shadow-lg shadow-primary-container/20"
+                      : "flex h-12 w-12 items-center justify-center rounded-2xl font-bold text-on-surface transition-all hover:bg-white hover:shadow-md"
+                  }
+                >
+                  {p}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                aria-label="הבא"
+                className="flex h-12 w-12 items-center justify-center rounded-2xl text-outline transition-all hover:bg-white hover:shadow-md disabled:opacity-40"
+              >
+                <span className="material-symbols-outlined rotate-180">
+                  chevron_right
+                </span>
+              </button>
+            </nav>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}

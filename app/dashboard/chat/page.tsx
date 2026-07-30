@@ -1,15 +1,12 @@
+import type { Metadata } from "next";
 import { ChatInterface } from "@/components/chat/ChatInterface";
+import { CHAT } from "@/utils/texts";
 
-const CHAT_SUBTITLE = "שוחח עם יועץ הקריירה שלך";
+export const metadata: Metadata = {
+  title: `${CHAT.title} | עתיד מתאים`,
+  description: CHAT.subtitle,
+};
 
 export default function ChatPage() {
-  return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-2xl font-bold">יועץ קריירה AI</h2>
-        <p className="text-muted">{CHAT_SUBTITLE}</p>
-      </div>
-      <ChatInterface />
-    </div>
-  );
+  return <ChatInterface />;
 }

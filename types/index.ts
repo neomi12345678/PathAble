@@ -78,6 +78,15 @@ export interface Job {
   scope: string;
   active: boolean;
   created_at: string;
+  /** רמת אינטראקיה חברתית נדרשת — קריטי להתאמה לאוטיזם */
+  social_interaction_level: string;
+  /** תמיכות במקום העבודה: ליווי, סביבה שקטה, הוראות כתובות וכו׳ */
+  support_features: string[];
+  /** הסבר קצר למה המשרה מתאימה לאנשים על הרצף האוטיסטי */
+  autism_match_reason: string;
+  /** לאילו אבחנות המשרה מתאימה */
+  disability_fit: string[];
+  profession_id?: string;
 }
 
 export interface LearningModule {
@@ -89,12 +98,53 @@ export interface LearningModule {
   order_index: number;
 }
 
+export interface LearningQuizOption {
+  id: string;
+  text: string;
+}
+
+export interface LearningQuizQuestion {
+  id: string;
+  question: string;
+  options: LearningQuizOption[];
+  correctOptionId: string;
+}
+
+export interface LearningResource {
+  label: string;
+  url: string;
+  type: "article" | "video" | "tool" | "official";
+}
+
+export interface LearningModuleDetail extends LearningModule {
+  sections: string[];
+  quiz: LearningQuizQuestion[];
+  resources: LearningResource[];
+  durationMinutes: number;
+  takeaways: string[];
+}
+
 export interface SkillsModule {
   id: string;
   title: string;
   description: string;
   difficulty: string;
   order_index: number;
+}
+
+export interface SkillExerciseQuestion {
+  id: string;
+  question: string;
+  options: LearningQuizOption[];
+  correctOptionId: string;
+  explanationCorrect: string;
+  explanationIncorrect: string;
+  tip?: string;
+}
+
+export interface SkillModuleDetail extends SkillsModule {
+  questions: SkillExerciseQuestion[];
+  practicalExample: string;
 }
 
 export interface UserProgress {
@@ -156,8 +206,45 @@ export interface RightsHelperOrg {
 
 export interface AchievementBadge {
   id: string;
-  emoji: string;
+  icon: string;
   title: string;
   condition: string;
   earned: boolean;
+}
+
+export type CareerStepStatus = "done" | "active" | "pending";
+
+export interface CareerPathStep {
+  label: string;
+  status: CareerStepStatus;
+}
+
+export interface CareerPath {
+  title: string;
+  step: number;
+  totalSteps: number;
+  percent: number;
+  steps: CareerPathStep[];
+}
+
+export interface ActivityFeedItem {
+  id: string;
+  icon: string;
+  title: string;
+  detail: string;
+  timeAgo: string;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  name: string;
+  xp: number;
+  avatar?: string;
+  isCurrentUser?: boolean;
+}
+
+export interface ProfileInterest {
+  id: string;
+  label: string;
+  checked: boolean;
 }
