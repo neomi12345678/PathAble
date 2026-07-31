@@ -1,6 +1,14 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AdminUser } from "@/components/admin/UserTable";
 
+function getAdminClientOrNull() {
+  try {
+    return createAdminClient();
+  } catch {
+    return null;
+  }
+}
+
 function initials(first: string | null, last: string | null, email: string | null): string {
   const f = first?.trim().charAt(0) ?? "";
   const l = last?.trim().charAt(0) ?? "";
@@ -17,7 +25,8 @@ function formatDate(iso: string): string {
 const DAY_LABELS = ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'"];
 
 export async function getAdminUsersFromDb(): Promise<AdminUser[]> {
-  const supabase = createAdminClient();
+  const supabase = getAdminClientOrNull();
+  if (!supabase) return [];
   const { data, error } = await supabase
     .from("profiles")
     .select("id, email, first_name, last_name, sector, onboarding_complete, created_at")
@@ -50,7 +59,21 @@ export interface AdminStats {
 }
 
 export async function getAdminStatsFromDb(): Promise<AdminStats> {
-  const supabase = createAdminClient();
+  const supabase = getAdminClientOrNull();
+  if (!supabase) {
+    return {
+      totalUsers: 0,
+      activeUsers: 0,
+      completedModules: 0,
+      totalJobs: 0,
+      weeklySignups: Array.from({ length: 7 }, (_, i) => ({
+        day: DAY_LABELS[i],
+        count: 0,
+        tone: "muted",
+        h: 5,
+      })),
+    };
+  }
 
   const [profilesRes, progressRes, jobsRes] = await Promise.all([
     supabase.from("profiles").select("id, onboarding_complete, created_at"),
@@ -112,7 +135,8 @@ export async function getAdminStatsFromDb(): Promise<AdminStats> {
 }
 
 export async function getRegisteredUserCount(): Promise<number> {
-  const supabase = createAdminClient();
+  const supabase = getAdminClientOrNull();
+  if (!supabase) return 0;
   const { count, error } = await supabase
     .from("profiles")
     .select("id", { count: "exact", head: true });
