@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { Job, Profession, Question } from "@/types";
 
 export async function getProfessionsFromDb(): Promise<Profession[]> {
+  if (!isSupabaseConfigured()) return [];
   const supabase = createClient();
   const { data, error } = await supabase
     .from("professions")

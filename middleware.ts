@@ -6,6 +6,7 @@ import {
   clearOnboardedCookie,
   updateSession,
 } from "@/lib/supabase/middleware";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 const PUBLIC_PATHS = ["/", "/auth/login", "/auth/register", "/auth/forgot-password"];
 
@@ -26,71 +27,79 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     return NextResponse.next();
   }
 
-  const { response, user, onboardingComplete, role } =
-    await updateSession(request);
-
-  const isPublicPath = PUBLIC_PATHS.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`)
-  );
-
-  if (pathname.startsWith("/dashboard") && !user) {
-    const loginUrl = new URL("/auth/login", request.url);
-    loginUrl.searchParams.set("redirect", pathname);
-    return withSessionCookies(NextResponse.redirect(loginUrl), response);
+  if (!isSupabaseConfigured()) {
+    return NextResponse.next();
   }
 
-  if (pathname === "/onboarding" && !user) {
-    const loginUrl = new URL("/auth/login", request.url);
-    loginUrl.searchParams.set("redirect", "/onboarding");
-    return withSessionCookies(NextResponse.redirect(loginUrl), response);
-  }
+  try {
+    const { response, user, onboardingComplete, role } =
+      await updateSession(request);
 
-  if (user && pathname.startsWith("/dashboard") && !onboardingComplete) {
-    return withSessionCookies(
-      NextResponse.redirect(new URL("/onboarding", request.url)),
-      response
+    const isPublicPath = PUBLIC_PATHS.some(
+      (path) => pathname === path || pathname.startsWith(`${path}/`)
     );
-  }
 
-  if (
-    pathname === "/onboarding" &&
-    user &&
-    onboardingComplete &&
-    !request.nextUrl.searchParams.has("update")
-  ) {
-    return withSessionCookies(
-      NextResponse.redirect(new URL("/dashboard", request.url)),
-      response
-    );
-  }
+    if (pathname.startsWith("/dashboard") && !user) {
+      const loginUrl = new URL("/auth/login", request.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return withSessionCookies(NextResponse.redirect(loginUrl), response);
+    }
 
-  if (pathname.startsWith("/admin")) {
-    if (!user) {
+    if (pathname === "/onboarding" && !user) {
+      const loginUrl = new URL("/auth/login", request.url);
+      loginUrl.searchParams.set("redirect", "/onboarding");
+      return withSessionCookies(NextResponse.redirect(loginUrl), response);
+    }
+
+    if (user && pathname.startsWith("/dashboard") && !onboardingComplete) {
       return withSessionCookies(
-        NextResponse.redirect(new URL("/auth/login", request.url)),
+        NextResponse.redirect(new URL("/onboarding", request.url)),
         response
       );
     }
-    if (role !== "admin") {
+
+    if (
+      pathname === "/onboarding" &&
+      user &&
+      onboardingComplete &&
+      !request.nextUrl.searchParams.has("update")
+    ) {
       return withSessionCookies(
         NextResponse.redirect(new URL("/dashboard", request.url)),
         response
       );
     }
-  }
 
-  if (isPublicPath && user && pathname.startsWith("/auth/")) {
-    return withSessionCookies(
-      NextResponse.redirect(new URL("/dashboard", request.url)),
-      response
-    );
-  }
+    if (pathname.startsWith("/admin")) {
+      if (!user) {
+        return withSessionCookies(
+          NextResponse.redirect(new URL("/auth/login", request.url)),
+          response
+        );
+      }
+      if (role !== "admin") {
+        return withSessionCookies(
+          NextResponse.redirect(new URL("/dashboard", request.url)),
+          response
+        );
+      }
+    }
 
-  if (pathname.startsWith("/dashboard") && onboardingComplete) {
-    clearOnboardedCookie(response);
-  }
+    if (isPublicPath && user && pathname.startsWith("/auth/")) {
+      return withSessionCookies(
+        NextResponse.redirect(new URL("/dashboard", request.url)),
+        response
+      );
+    }
 
-  return response;
+    if (pathname.startsWith("/dashboard") && onboardingComplete) {
+      clearOnboardedCookie(response);
+    }
+
+    return response;
+  } catch {
+    return NextResponse.next();
+  }
 }
 
 export const config = {
