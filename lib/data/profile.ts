@@ -2,7 +2,7 @@ import type { ProfileInterest } from "@/types";
 import type { UserProfilePrefs } from "@/lib/user-profile";
 import type { ProfileRow } from "@/types/database";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { tryCreateClient } from "@/lib/supabase/server";
 import type { Profile } from "@/types";
 
 const PROFILE_INTEREST_OPTIONS: Omit<ProfileInterest, "checked">[] = [
@@ -179,7 +179,8 @@ export async function getProfileExtras(userId: string): Promise<{
 }
 
 export async function getCurrentProfile(): Promise<Profile | null> {
-  const supabase = createClient();
+  const supabase = tryCreateClient();
+  if (!supabase) return null;
   const {
     data: { user },
   } = await supabase.auth.getUser();

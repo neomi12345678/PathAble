@@ -1,7 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { createClient } from "@/lib/supabase/server";
 import type { Job, Profession, Question } from "@/types";
-
 export async function getProfessionsFromDb(): Promise<Profession[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = createClient();
@@ -28,6 +27,7 @@ export async function getProfessionsFromDb(): Promise<Profession[]> {
 export async function getProfessionByIdFromDb(
   id: string
 ): Promise<Profession | null> {
+  if (!isSupabaseConfigured()) return null;
   const supabase = createClient();
   const { data, error } = await supabase
     .from("professions")
@@ -55,6 +55,7 @@ export async function getJobsFromDb(filters?: {
   work_from_home?: boolean;
   accessibility?: boolean;
 }): Promise<Job[]> {
+  if (!isSupabaseConfigured()) return [];
   const supabase = createClient();
   let query = supabase.from("jobs").select("*").eq("active", true);
   if (filters?.city) query = query.eq("city", filters.city);
@@ -86,6 +87,7 @@ export async function getJobsFromDb(filters?: {
 }
 
 export async function getJobByIdFromDb(id: string): Promise<Job | null> {
+  if (!isSupabaseConfigured()) return null;
   const supabase = createClient();
   const { data, error } = await supabase
     .from("jobs")
@@ -116,6 +118,7 @@ export async function getJobByIdFromDb(id: string): Promise<Job | null> {
 }
 
 export async function getQuestionsFromDb(): Promise<Question[]> {
+  if (!isSupabaseConfigured()) return [];
   const supabase = createClient();
   const { data, error } = await supabase
     .from("questions")
@@ -136,6 +139,7 @@ export async function getQuestionsFromDb(): Promise<Question[]> {
 export async function getSavedProfessionIdsFromDb(
   userId: string
 ): Promise<string[]> {
+  if (!isSupabaseConfigured()) return [];
   const supabase = createClient();
   const { data, error } = await supabase
     .from("saved_professions")

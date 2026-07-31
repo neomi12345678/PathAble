@@ -12,6 +12,8 @@ export const metadata: Metadata = {
   title: `פאנל ניהול | ${APP_NAME}`,
 };
 
+export const dynamic = "force-dynamic";
+
 const NAV = [
   { icon: "dashboard", label: "לוח בקרה", active: true },
   { icon: "group", label: "משתמשים", active: false },

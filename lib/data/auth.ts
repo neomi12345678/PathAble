@@ -1,7 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
+import { tryCreateClient } from "@/lib/supabase/server";
 
 export async function getAuthUser() {
-  const supabase = createClient();
+  const supabase = tryCreateClient();
+  if (!supabase) return null;
   const {
     data: { user },
     error,
