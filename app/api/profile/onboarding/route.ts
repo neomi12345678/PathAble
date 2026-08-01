@@ -167,11 +167,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     return res;
 
   } catch (err) {
-
     const message = err instanceof Error ? err.message : "שגיאה בשמירת הפרופיל";
-
-    return NextResponse.json({ error: message }, { status: 500 });
-
+    const friendly =
+      message.toLowerCase().includes("invalid api key")
+        ? "מפתח Supabase לא תקין ב-Vercel — עדכני NEXT_PUBLIC_SUPABASE_ANON_KEY ו-SUPABASE_SERVICE_ROLE_KEY"
+        : message;
+    return NextResponse.json({ error: friendly }, { status: 500 });
   }
 
 }

@@ -100,7 +100,9 @@ export async function updateProfileOnboarding(
     },
   });
   if (metaError) {
-    throw new Error(metaError.message);
+    // Profile row is the source of truth; metadata sync is best-effort
+    const { logger } = await import("@/lib/logger");
+    logger.error("User metadata sync failed", { error: metaError.message });
   }
 
   return rowToProfilePrefs(data)!;
