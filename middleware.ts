@@ -8,7 +8,14 @@ import {
 } from "@/lib/supabase/middleware";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
-const PUBLIC_PATHS = ["/", "/auth/login", "/auth/register", "/auth/forgot-password", "/auth/confirm"];
+const PUBLIC_PATHS = [
+  "/",
+  "/auth/login",
+  "/auth/register",
+  "/auth/forgot-password",
+  "/auth/confirm",
+  "/auth/callback",
+];
 
 function withSessionCookies(
   target: NextResponse,
