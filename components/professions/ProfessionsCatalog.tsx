@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Profession } from "@/types";
 import { ProfessionCard } from "@/components/professions/ProfessionCard";
-import { getProfessionMatchScore } from "@/lib/disability-matching";
+import { getProfessionMatchScore, professionMatchesDiagnosis } from "@/lib/disability-matching";
 import { useUserProfile } from "@/hooks/useUserProfile";
 
 const PAGE_SIZE = 9;
@@ -93,7 +93,7 @@ export function ProfessionsCatalog({
         salary: getSalaryAvg(p.salary_range),
         demand: getDemandScore(p),
         category: getCategory(p.id),
-        fitsDiagnosis: p.disability_fit.includes(diagnosis),
+        fitsDiagnosis: professionMatchesDiagnosis(p, diagnosis),
       }))
       .filter((item) => {
         if (onlyMyDiagnosis && !item.fitsDiagnosis) return false;

@@ -67,8 +67,8 @@ function applyProximityBonus(
   userCity?: string
 ): number {
   if (!userCity?.trim()) return score;
-  if (citiesMatch(job.city, userCity)) return score + 12;
-  if (citiesInSameMetro(job.city, userCity)) return score + 6;
+  if (citiesMatch(job.city, userCity)) return score + 18;
+  if (citiesInSameMetro(job.city, userCity)) return score + 10;
   return score;
 }
 
@@ -78,6 +78,26 @@ function diagnosisInFit(diagnosis: string, fitList: string[]): number {
     (item) => item === d || item.includes(d) || d.includes(item)
   );
   return idx;
+}
+
+export function jobMatchesDiagnosis(job: Job, diagnosis: string): boolean {
+  return diagnosisInFit(diagnosis, job.disability_fit) !== -1;
+}
+
+export function professionMatchesDiagnosis(
+  profession: Profession,
+  diagnosis: string
+): boolean {
+  return diagnosisInFit(diagnosis, profession.disability_fit) !== -1;
+}
+
+export function jobMatchesUserCity(job: Job, userCity?: string): boolean {
+  if (!userCity?.trim()) return true;
+  return citiesMatch(job.city, userCity) || citiesInSameMetro(job.city, userCity);
+}
+
+export function extractJobCityName(city: string): string {
+  return extractCityName(city);
 }
 
 function applyAutismLevelProfessionBonus(

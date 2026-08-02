@@ -13,12 +13,15 @@ export async function sendWelcomeEmail(
   firstName?: string
 ): Promise<boolean> {
   const resend = getResendClient();
-  if (!resend) return false;
+  if (!resend) {
+    logger.warn("Welcome email skipped: RESEND_API_KEY is not configured");
+    return false;
+  }
 
   const greeting = firstName?.trim() ? `שלום ${firstName.trim()},` : "שלום,";
 
   const { error } = await resend.emails.send({
-    from: `${APP_NAME} <${getFromAddress()}>`,
+    from: `PathAble <${getFromAddress()}>`,
     to,
     subject: `ברוכים הבאים ל-${APP_NAME}`,
     html: `

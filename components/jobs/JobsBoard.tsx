@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { Job } from "@/types";
-import { getJobMatchScore, sortJobsByDiagnosis } from "@/lib/disability-matching";
+import { getJobMatchScore, jobMatchesDiagnosis, jobMatchesUserCity, sortJobsByDiagnosis } from "@/lib/disability-matching";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { JOBS } from "@/utils/texts";
 
@@ -44,6 +44,7 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
   const [onlyLowSocial, setOnlyLowSocial] = useState(false);
   const [onlyWithSupport, setOnlyWithSupport] = useState(false);
   const [onlyMyDiagnosis, setOnlyMyDiagnosis] = useState(true);
+  const [onlyMyArea, setOnlyMyArea] = useState(false);
   const [scope, setScope] = useState("all");
 
   const jobs = useMemo(
@@ -62,7 +63,8 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
       if (onlyRemote && !job.work_from_home) return false;
       if (onlyLowSocial && job.social_interaction_level !== "נמוך") return false;
       if (onlyWithSupport && job.support_features.length === 0) return false;
-      if (onlyMyDiagnosis && !job.disability_fit.includes(diagnosis)) return false;
+      if (onlyMyDiagnosis && !jobMatchesDiagnosis(job, diagnosis)) return false;
+      if (onlyMyArea && city?.trim() && !jobMatchesUserCity(job, city)) return false;
       if (scope !== "all" && job.scope !== scope) return false;
       if (q) {
         const haystack =
@@ -71,7 +73,7 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
       }
       return true;
     });
-  }, [jobs, search, onlyRemote, onlyLowSocial, onlyWithSupport, onlyMyDiagnosis, scope, diagnosis]);
+  }, [jobs, search, onlyRemote, onlyLowSocial, onlyWithSupport, onlyMyDiagnosis, onlyMyArea, scope, diagnosis, city]);
 
   const clearFilters = (): void => {
     setSearch("");
@@ -79,6 +81,7 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
     setOnlyLowSocial(false);
     setOnlyWithSupport(false);
     setOnlyMyDiagnosis(true);
+    setOnlyMyArea(false);
     setScope("all");
   };
 
@@ -101,6 +104,13 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
               <>
                 ההתאמה מחושבת לפי:{" "}
                 <span className="font-black text-primary">{diagnosisLabel}</span>
+                {city?.trim() ? (
+                  <>
+                    {" "}
+                    · אזור:{" "}
+                    <span className="font-black text-primary">{city.trim()}</span>
+                  </>
+                ) : null}
               </>
             )}
           </p>
@@ -160,6 +170,20 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
             >
               <span className="material-symbols-outlined text-base">psychology</span>
               מתאים ל-{diagnosisLabel}
+            </button>
+            <button
+              type="button"
+              onClick={() => setOnlyMyArea((v) => !v)}
+              disabled={!city?.trim()}
+              aria-pressed={onlyMyArea}
+              className={`flex h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
+                onlyMyArea
+                  ? "bg-sky-100 text-sky-800 shadow-md"
+                  : "border border-outline-variant/40 bg-white/70 text-on-surface-variant hover:border-sky-400"
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">location_on</span>
+              {city?.trim() ? `באזור ${city.trim()}` : JOBS.onlyMyArea}
             </button>
             <button
               type="button"

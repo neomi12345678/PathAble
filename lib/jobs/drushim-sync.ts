@@ -105,13 +105,66 @@ function inferSupportFeatures(description: string, workFromHome: boolean): strin
   return features;
 }
 
-function inferDisabilityFit(title: string, description: string): string[] {
+function inferDisabilityFit(
+  title: string,
+  description: string,
+  workFromHome: boolean,
+  socialLevel: string
+): string[] {
   const fits = new Set<string>(["אוטיזם"]);
   const text = `${title} ${description}`.toLowerCase();
-  if (/adhd|קשב/.test(text)) fits.add("ADHD");
-  if (/חרדה|social/.test(text)) fits.add("חרדה חברתית");
-  if (/לקות למידה|dyslex/.test(text)) fits.add("לקות למידה");
+
+  if (/adhd|קשב|hyper/.test(text)) fits.add("ADHD");
+  if (/חרדה|social anxiety|חברתי/.test(text)) fits.add("חרדה חברתית");
+  if (/לקות למידה|dyslex|דיסלק/.test(text)) fits.add("לקות למידה");
+  if (/שמיע|כבד.?שמיע|hearing|deaf|סיעוד/.test(text)) fits.add("לקות שמיעה");
+  if (/ראייה|עיוור|blind|vision|low.?vision/.test(text)) fits.add("לקות ראייה");
+  if (/נגישות|כיסא.?גלגל|פיזי|mobility|נכות/.test(text)) fits.add("לקות פיזית");
+
+  const deskOrRemote =
+    workFromHome ||
+    /מהבית|remote|היברידי|משרד|שולחן|מחשב|הזנה|ניתוח|כתיב|תכנות|qa|data|cad|שרטוט|הנהל|בקרה|בדיקות/.test(
+      text
+    );
+
+  if (deskOrRemote) {
+    fits.add("לקות פיזית");
+    fits.add("לקות שמיעה");
+  }
+
+  if (workFromHome || /כתוב|מייל|slack|async|טקסט|בכתב/.test(text)) {
+    fits.add("לקות שמיעה");
+    fits.add("לקות ראייה");
+  }
+
+  if (socialLevel === "נמוך") {
+    fits.add("חרדה חברתית");
+    fits.add("ADHD");
+    fits.add("לקות למידה");
+  }
+
+  if (/ליווי|שילוב|mentor|מנטור|נגיש/.test(text)) {
+    fits.add("לקות פיזית");
+    fits.add("לקות ראייה");
+    fits.add("לקות שמיעה");
+  }
+
   return [...fits];
+}
+
+export function enrichDisabilityFit(
+  title: string,
+  description: string,
+  workFromHome: boolean,
+  socialLevel: string,
+  existing: string[] = []
+): string[] {
+  return [
+    ...new Set([
+      ...existing,
+      ...inferDisabilityFit(title, description, workFromHome, socialLevel),
+    ]),
+  ];
 }
 
 export interface SyncJobRow {
@@ -154,7 +207,12 @@ export function mapDrushimPostingToJob(
   const workFromHome = inferWorkFromHome(city, description);
   const socialLevel = inferSocialLevel(title, description);
   const supportFeatures = inferSupportFeatures(description, workFromHome);
-  const disabilityFit = inferDisabilityFit(title, description);
+  const disabilityFit = inferDisabilityFit(
+    title,
+    description,
+    workFromHome,
+    socialLevel
+  );
   const reason =
     description.length > 160 ? `${description.slice(0, 157)}...` : description;
 

@@ -1,6 +1,56 @@
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
+import { enrichDisabilityFit } from "@/lib/jobs/drushim-sync";
 import type { Job, Profession, Question } from "@/types";
+
+function mapJobRow(row: {
+  slug: string;
+  title: string;
+  company: string;
+  city: string;
+  description: string;
+  salary: string;
+  apply_url: string;
+  work_from_home: boolean;
+  accessibility: boolean;
+  scope: string;
+  active: boolean;
+  created_at: string;
+  social_interaction_level: string | null;
+  support_features: string[] | null;
+  autism_match_reason: string | null;
+  disability_fit: string[] | null;
+  profession_id: string | null;
+}): Job {
+  const socialLevel = row.social_interaction_level ?? "בינוני";
+  const disabilityFit = enrichDisabilityFit(
+    row.title,
+    row.description,
+    row.work_from_home,
+    socialLevel,
+    row.disability_fit ?? []
+  );
+
+  return {
+    id: row.slug,
+    title: row.title,
+    company: row.company,
+    city: row.city,
+    description: row.description,
+    salary: row.salary,
+    apply_url: row.apply_url,
+    work_from_home: row.work_from_home,
+    accessibility: row.accessibility,
+    scope: row.scope,
+    active: row.active,
+    created_at: row.created_at,
+    social_interaction_level: socialLevel,
+    support_features: row.support_features ?? [],
+    autism_match_reason: row.autism_match_reason ?? "",
+    disability_fit: disabilityFit,
+    profession_id: row.profession_id ?? undefined,
+  };
+}
 export async function getProfessionsFromDb(): Promise<Profession[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = createClient();
@@ -65,25 +115,7 @@ export async function getJobsFromDb(filters?: {
     query = query.eq("accessibility", filters.accessibility);
   const { data, error } = await query;
   if (error || !data) return [];
-  return data.map((row) => ({
-    id: row.slug,
-    title: row.title,
-    company: row.company,
-    city: row.city,
-    description: row.description,
-    salary: row.salary,
-    apply_url: row.apply_url,
-    work_from_home: row.work_from_home,
-    accessibility: row.accessibility,
-    scope: row.scope,
-    active: row.active,
-    created_at: row.created_at,
-    social_interaction_level: row.social_interaction_level ?? "בינוני",
-    support_features: row.support_features ?? [],
-    autism_match_reason: row.autism_match_reason ?? "",
-    disability_fit: row.disability_fit ?? [],
-    profession_id: row.profession_id ?? undefined,
-  }));
+  return data.map(mapJobRow);
 }
 
 export async function getJobByIdFromDb(id: string): Promise<Job | null> {
@@ -96,25 +128,7 @@ export async function getJobByIdFromDb(id: string): Promise<Job | null> {
     .eq("active", true)
     .maybeSingle();
   if (error || !data) return null;
-  return {
-    id: data.slug,
-    title: data.title,
-    company: data.company,
-    city: data.city,
-    description: data.description,
-    salary: data.salary,
-    apply_url: data.apply_url,
-    work_from_home: data.work_from_home,
-    accessibility: data.accessibility,
-    scope: data.scope,
-    active: data.active,
-    created_at: data.created_at,
-    social_interaction_level: data.social_interaction_level ?? "בינוני",
-    support_features: data.support_features ?? [],
-    autism_match_reason: data.autism_match_reason ?? "",
-    disability_fit: data.disability_fit ?? [],
-    profession_id: data.profession_id ?? undefined,
-  };
+  return mapJobRow(data);
 }
 
 export async function getQuestionsFromDb(): Promise<Question[]> {
