@@ -31,11 +31,16 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const response = NextResponse.json({ data: { success: true } });
     const supabase = createRouteHandlerClient(response);
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+      new URL(request.url).origin;
+    const emailRedirectTo = `${appUrl}/auth/confirm?next=/onboarding`;
 
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo,
         data: { first_name: firstName, last_name: lastName },
       },
     });

@@ -21,6 +21,11 @@ export function LoginForm() {
     if (searchParams.get("error") === "oauth") {
       setError(AUTH.oauthError);
     }
+    if (searchParams.get("error") === "confirm") {
+      setError(
+        "קישור האימות לא תקף או פג תוקף. נסי להירשם שוב או פני למנהל המערכת."
+      );
+    }
   }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
