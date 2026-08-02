@@ -12,6 +12,14 @@ const registerSchema = z.object({
   interests: z.array(z.string()).optional(),
 });
 
+function mapRegisterError(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes("already") || lower.includes("registered")) {
+    return "כתובת האימייל כבר רשומה במערכת";
+  }
+  return message;
+}
+
 export async function POST(request: Request): Promise<NextResponse> {
   try {
     const body = await request.json();
@@ -29,62 +37,71 @@ export async function POST(request: Request): Promise<NextResponse> {
     const firstName = parts[0] ?? "";
     const lastName = parts.slice(1).join(" ");
 
-    const response = NextResponse.json({ data: { success: true } });
-    const supabase = createRouteHandlerClient(response);
-    const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-      new URL(request.url).origin;
-    const emailRedirectTo = `${appUrl}/auth/confirm?next=/onboarding`;
+    const admin = createAdminClient();
+    const { data: created, error: createError } =
+      await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { first_name: firstName, last_name: lastName },
+      });
 
-    const { data, error } = await supabase.auth.signUp({
+    if (createError) {
+      return NextResponse.json(
+        { error: mapRegisterError(createError.message) },
+        { status: 400 }
+      );
+    }
+
+    const response = NextResponse.json({
+      data: { success: true, welcomeEmailSent: false },
+    });
+    const supabase = createRouteHandlerClient(response);
+
+    const { error: loginError } = await supabase.auth.signInWithPassword({
       email,
       password,
-      options: {
-        emailRedirectTo,
-        data: { first_name: firstName, last_name: lastName },
-      },
     });
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    if (loginError) {
+      logger.error("Register login after create failed", {
+        error: loginError.message,
+      });
     }
 
-    if (data.user) {
-      const admin = createAdminClient();
+    const profileUpdate: {
+      first_name?: string;
+      last_name?: string;
+      email: string;
+      interests?: string[];
+    } = { email };
 
-      if (!data.user.email_confirmed_at) {
-        await admin.auth.admin.updateUserById(data.user.id, {
-          email_confirm: true,
-        });
-      }
-
-      if (!data.session) {
-        await supabase.auth.signInWithPassword({ email, password });
-      }
-
-      const profileUpdate: {
-        first_name?: string;
-        last_name?: string;
-        email: string;
-        interests?: string[];
-      } = { email };
-
-      if (firstName || lastName) {
-        profileUpdate.first_name = firstName;
-        profileUpdate.last_name = lastName;
-      }
-      if (interests?.length) {
-        profileUpdate.interests = interests;
-      }
-
-      await admin.from("profiles").update(profileUpdate).eq("id", data.user.id);
+    if (firstName || lastName) {
+      profileUpdate.first_name = firstName;
+      profileUpdate.last_name = lastName;
+    }
+    if (interests?.length) {
+      profileUpdate.interests = interests;
     }
 
-    if (data.user?.email) {
-      void sendWelcomeEmail(data.user.email, firstName).catch(() => undefined);
+    await admin
+      .from("profiles")
+      .update(profileUpdate)
+      .eq("id", created.user.id);
+
+    const welcomeEmailSent = await sendWelcomeEmail(email, firstName);
+    if (!welcomeEmailSent) {
+      logger.warn("Welcome email not sent", { email });
     }
 
-    return response;
+    const finalResponse = NextResponse.json({
+      data: { success: true, welcomeEmailSent },
+    });
+    response.cookies.getAll().forEach((cookie) => {
+      finalResponse.cookies.set(cookie.name, cookie.value, cookie);
+    });
+
+    return finalResponse;
   } catch (error) {
     logger.error("Register failed", { error: String(error) });
     return NextResponse.json({ error: "שגיאה פנימית" }, { status: 500 });

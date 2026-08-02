@@ -56,7 +56,7 @@ export function RegisterForm() {
 
       const json = (await res.json()) as {
         error?: string;
-        data?: { needsEmailConfirmation?: boolean };
+        data?: { welcomeEmailSent?: boolean };
       };
 
       if (!res.ok) {
@@ -64,14 +64,11 @@ export function RegisterForm() {
         return;
       }
 
-      if (json.data?.needsEmailConfirmation) {
-        toast.success("נרשמת בהצלחה! אשר/י את האימייל ואז התחבר/י.");
-        router.push("/auth/login");
-        router.refresh();
-        return;
-      }
-
-      toast.success(AUTH.registerSuccess);
+      toast.success(
+        json.data?.welcomeEmailSent
+          ? "נרשמת בהצלחה! שלחנו אליך מייל ברוכים הבאים."
+          : AUTH.registerSuccess
+      );
       router.push("/onboarding");
       router.refresh();
     } catch {
