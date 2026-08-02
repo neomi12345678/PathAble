@@ -23,7 +23,7 @@ export function LoginForm() {
     }
     if (searchParams.get("error") === "confirm") {
       setError(
-        "קישור האימות לא תקף או פג תוקף. נסי להירשם שוב או פני למנהל המערכת."
+        "קישור האימות לא עבד. נסי להתחבר ישירות עם האימייל והסיסמה."
       );
     }
   }, [searchParams]);

@@ -24,15 +24,9 @@ export function ConfirmEmailHandler() {
       const type = searchParams.get("type") as EmailOtpType | null;
 
       if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        // PKCE code from email links cannot be exchanged here (signup ran on server).
         if (cancelled) return;
-        if (error) {
-          setStatus("error");
-          router.replace("/auth/login?error=confirm");
-          return;
-        }
-        router.replace(next);
-        router.refresh();
+        router.replace("/auth/login");
         return;
       }
 

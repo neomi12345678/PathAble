@@ -49,24 +49,19 @@ export async function POST(request: Request): Promise<NextResponse> {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    if (!data.session) {
-      const { error: loginError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (loginError) {
-        return NextResponse.json({
-          data: {
-            success: true,
-            needsEmailConfirmation: true,
-          },
-        });
-      }
-    }
-
     if (data.user) {
       const admin = createAdminClient();
+
+      if (!data.user.email_confirmed_at) {
+        await admin.auth.admin.updateUserById(data.user.id, {
+          email_confirm: true,
+        });
+      }
+
+      if (!data.session) {
+        await supabase.auth.signInWithPassword({ email, password });
+      }
+
       const profileUpdate: {
         first_name?: string;
         last_name?: string;
