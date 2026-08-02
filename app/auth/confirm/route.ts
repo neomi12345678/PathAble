@@ -8,9 +8,10 @@ export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams, origin } = new URL(request.url);
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
+  const code = searchParams.get("code");
   const next = getSafeRedirectPath(searchParams.get("next") ?? "/onboarding");
 
-  if (!tokenHash || !type) {
+  if (!tokenHash && !code) {
     return NextResponse.redirect(
       new URL("/auth/login?error=confirm", origin)
     );
@@ -20,10 +21,12 @@ export async function GET(request: Request): Promise<NextResponse> {
   const response = NextResponse.redirect(redirectUrl);
   const supabase = createRouteHandlerClient(response);
 
-  const { error } = await supabase.auth.verifyOtp({
-    type,
-    token_hash: tokenHash,
-  });
+  const { error } = code
+    ? await supabase.auth.exchangeCodeForSession(code)
+    : await supabase.auth.verifyOtp({
+        type: type ?? "signup",
+        token_hash: tokenHash!,
+      });
 
   if (error) {
     logger.error("Email confirm failed", { error: error.message });
