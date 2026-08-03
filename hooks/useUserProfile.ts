@@ -17,6 +17,7 @@ export function useUserProfile(): {
   diagnosis: string;
   autismLevel?: AutismLevel;
   city?: string;
+  sector?: string;
   diagnosisLabel: string;
 } {
   const [profile, setProfile] = useState<UserProfilePrefs | null>(null);
@@ -51,6 +52,7 @@ export function useUserProfile(): {
     diagnosis,
     autismLevel: profile?.autism_level,
     city: profile?.city,
+    sector: profile?.sector,
     diagnosisLabel,
   };
 }

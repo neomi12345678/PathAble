@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { Job } from "@/types";
-import { getJobMatchScore, jobMatchesDiagnosis, jobMatchesUserCity, sortJobsByDiagnosis } from "@/lib/disability-matching";
+import { getJobMatchScore, jobMatchesDiagnosis, jobMatchesUserCity, sortJobsByDiagnosis, DIAGNOSIS_FILTER_MIN_SCORE } from "@/lib/disability-matching";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { JOBS } from "@/utils/texts";
 
@@ -37,7 +37,7 @@ function matchBadgeClass(score: number): string {
 }
 
 export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
-  const { diagnosis, autismLevel, city, diagnosisLabel, loading: profileLoading } =
+  const { diagnosis, autismLevel, city, sector, diagnosisLabel, loading: profileLoading } =
     useUserProfile();
   const [search, setSearch] = useState("");
   const [onlyRemote, setOnlyRemote] = useState(false);
@@ -48,8 +48,8 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
   const [scope, setScope] = useState("all");
 
   const jobs = useMemo(
-    () => sortJobsByDiagnosis(initialJobs, diagnosis, autismLevel, city),
-    [initialJobs, diagnosis, autismLevel, city]
+    () => sortJobsByDiagnosis(initialJobs, diagnosis, autismLevel, city, sector),
+    [initialJobs, diagnosis, autismLevel, city, sector]
   );
 
   const scopes = useMemo(
@@ -63,15 +63,24 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
       if (onlyRemote && !job.work_from_home) return false;
       if (onlyLowSocial && job.social_interaction_level !== "נמוך") return false;
       if (onlyWithSupport && job.support_features.length === 0) return false;
-      if (
-        onlyMyDiagnosis &&
-        diagnosis &&
-        !jobMatchesDiagnosis(job, diagnosis) &&
-        getJobMatchScore(job, diagnosis, autismLevel, city) < 60
-      ) {
-        return false;
+
+      if (onlyMyDiagnosis && diagnosis) {
+        const score = getJobMatchScore(
+          job,
+          diagnosis,
+          autismLevel,
+          city,
+          sector
+        );
+        const fits = jobMatchesDiagnosis(job, diagnosis);
+        if (!fits && score < DIAGNOSIS_FILTER_MIN_SCORE) return false;
       }
-      if (onlyMyArea && city?.trim() && !jobMatchesUserCity(job, city)) return false;
+
+      if (onlyMyArea) {
+        if (!city?.trim()) return false;
+        if (!jobMatchesUserCity(job, city)) return false;
+      }
+
       if (scope !== "all" && job.scope !== scope) return false;
       if (q) {
         const haystack =
@@ -80,7 +89,7 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
       }
       return true;
     });
-  }, [jobs, search, onlyRemote, onlyLowSocial, onlyWithSupport, onlyMyDiagnosis, onlyMyArea, scope, diagnosis, autismLevel, city]);
+  }, [jobs, search, onlyRemote, onlyLowSocial, onlyWithSupport, onlyMyDiagnosis, onlyMyArea, scope, diagnosis, autismLevel, city, sector]);
 
   const clearFilters = (): void => {
     setSearch("");
@@ -255,7 +264,14 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
       {filtered.length > 0 ? (
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((job) => {
-            const matchScore = getJobMatchScore(job, diagnosis, autismLevel, city);
+            const matchScore = getJobMatchScore(
+              job,
+              diagnosis,
+              autismLevel,
+              city,
+              sector
+            );
+            const fitTags = job.disability_fit.slice(0, 3);
             return (
               <article
                 key={job.id}
@@ -280,7 +296,7 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
                 <h3 className="mb-1 font-display text-base font-bold leading-tight text-on-surface transition-colors group-hover:text-primary">
                   <Link href={`/dashboard/jobs/${job.id}`}>{job.title}</Link>
                 </h3>
-                <p className="mb-4 text-sm text-on-surface-variant">
+                <p className="mb-3 text-sm text-on-surface-variant">
                   {job.company} · {job.city}
                 </p>
 
@@ -299,12 +315,22 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
                       {JOBS.workFromHome}
                     </span>
                   )}
+                  {fitTags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800"
+                    >
+                      {tag}
+                    </span>
+                  ))}
                 </div>
 
                 <div className="mt-auto flex flex-col gap-2 border-t border-slate-100 pt-3">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm font-black text-on-surface">
-                      {job.salary}
+                      {job.salary && job.salary !== "לא צוין"
+                        ? job.salary
+                        : "שכר לא צוין"}
                     </span>
                   </div>
                   <Link
@@ -329,6 +355,13 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
           <h3 className="font-display text-2xl font-black text-on-surface">
             {JOBS.noResults}
           </h3>
+          <p className="max-w-md text-sm text-on-surface-variant">
+            {onlyMyArea && city?.trim()
+              ? `אין משרות באזור ${city.trim()} לפי הסינון הנוכחי. נסו לכבות «באזור שלי» או להרחיב מסננים אחרים.`
+              : onlyMyDiagnosis && diagnosis
+                ? `אין משרות שמתאימות מספיק ל-${diagnosisLabel}. נסו לכבות את סינון האבחנה.`
+                : "נסו לנקות את המסננים או לשנות את החיפוש."}
+          </p>
           <button
             type="button"
             onClick={clearFilters}

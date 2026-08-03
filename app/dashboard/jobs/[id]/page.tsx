@@ -55,7 +55,8 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     job,
     diagnosis,
     prefs?.autism_level,
-    prefs?.city
+    prefs?.city,
+    prefs?.sector
   );
 
   return (
