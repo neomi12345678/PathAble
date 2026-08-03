@@ -28,7 +28,13 @@ export async function sendWelcomeEmail(
   const toAddress = to.trim().toLowerCase();
   const fromAddress = getFromAddress();
 
-  const { error } = await resend.emails.send({
+  // Temporary debug: warn level so it shows in Vercel production logs
+  logger.warn("Resend send attempt", {
+    from: `PathAble <${fromAddress}>`,
+    to: toAddress,
+  });
+
+  const result = await resend.emails.send({
     from: `PathAble <${fromAddress}>`,
     to: toAddress,
     subject: `ברוכים הבאים ל-${APP_NAME}`,
@@ -50,14 +56,15 @@ export async function sendWelcomeEmail(
     `,
   });
 
-  if (error) {
+  if (result.error) {
     logger.error("Welcome email failed", {
-      error: error.message,
+      response: JSON.stringify(result),
       to: toAddress,
       from: fromAddress,
     });
-    return { sent: false, error: error.message };
+    return { sent: false, error: result.error.message };
   }
 
+  logger.warn("Welcome email sent", { id: result.data?.id, to: toAddress });
   return { sent: true };
 }
