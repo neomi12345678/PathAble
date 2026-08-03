@@ -101,6 +101,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       data: {
         success: true,
         welcomeEmailSent: welcomeResult.sent,
+        welcomeEmailError: welcomeResult.error ?? null,
       },
     });
     response.cookies.getAll().forEach((cookie) => {

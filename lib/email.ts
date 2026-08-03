@@ -3,9 +3,14 @@ import { getResendClient } from "@/lib/resend";
 import { logger } from "@/lib/logger";
 
 function getFromAddress(): string {
-  const from = process.env.RESEND_FROM_EMAIL?.trim();
-  if (from) return from;
-  return "onboarding@resend.dev";
+  const raw = process.env.RESEND_FROM_EMAIL?.trim();
+  if (!raw) return "onboarding@resend.dev";
+
+  // Allow pasting "Name <email@domain.com>" in env — extract email only.
+  const bracketMatch = raw.match(/<([^>]+)>/);
+  if (bracketMatch?.[1]) return bracketMatch[1].trim();
+
+  return raw;
 }
 
 export async function sendWelcomeEmail(
@@ -20,10 +25,12 @@ export async function sendWelcomeEmail(
   }
 
   const greeting = firstName?.trim() ? `שלום ${firstName.trim()},` : "שלום,";
+  const toAddress = to.trim().toLowerCase();
+  const fromAddress = getFromAddress();
 
   const { error } = await resend.emails.send({
-    from: `PathAble <${getFromAddress()}>`,
-    to,
+    from: `PathAble <${fromAddress}>`,
+    to: toAddress,
     subject: `ברוכים הבאים ל-${APP_NAME}`,
     html: `
       <div dir="rtl" style="font-family: Heebo, Arial, sans-serif; line-height: 1.6; color: #1e293b;">
@@ -44,7 +51,11 @@ export async function sendWelcomeEmail(
   });
 
   if (error) {
-    logger.error("Welcome email failed", { error: error.message, to });
+    logger.error("Welcome email failed", {
+      error: error.message,
+      to: toAddress,
+      from: fromAddress,
+    });
     return { sent: false, error: error.message };
   }
 
