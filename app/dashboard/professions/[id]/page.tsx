@@ -2,9 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { APP_NAME, PROFESSIONS } from "@/utils/texts";
-import { getProfessionById } from "@/lib/data";
+import {
+  getProfessionById,
+  getProfilePrefs,
+  getSavedProfessionIds,
+} from "@/lib/data";
+import { getProfessionMatchScore } from "@/lib/disability-matching";
+import { getDiagnosisLabel } from "@/lib/user-profile";
 import { professionIdSchema } from "@/utils/validation";
 import { IMAGES } from "@/lib/assets/images";
+import { SaveProfessionButton } from "@/components/professions/SaveProfessionButton";
 
 interface ProfessionDetailPageProps {
   params: { id: string };
@@ -26,37 +33,41 @@ export async function generateMetadata({
 
 const PATHS = [
   {
-    title: "המסלול המואץ (Bootcamp)",
-    text: "הכשרה אינטנסיבית של 6 חודשים עם דגש על פרקטיקה ועבודה מול לקוחות אמיתיים.",
-    price: "₪₪₪",
+    title: "מרכז הלמידה שלנו",
+    text: "מודולים קצרים ומותאמים אישית: הכנה לראיונות, התנהלות בעבודה, עבודה בצוות ועוד — בחינם ובקצב שלך.",
+    price: "חינם",
     border: "border-r-primary",
     hover: "group-hover:text-primary",
     recommended: true,
     items: [
-      { icon: "schedule", label: "24 שבועות" },
-      { icon: "groups", label: "לימוד בקבוצות קטנות" },
+      { icon: "schedule", label: "בקצב אישי" },
+      { icon: "verified", label: "מותאם לאבחנה שלך" },
     ],
-    cta: "לפרטים נוספים והרשמה",
+    cta: "למרכז הלמידה",
+    href: "/dashboard/learning",
+    external: false,
     ctaHover: "hover:bg-primary hover:text-on-primary",
     priceColor: "bg-primary-container/10 text-primary",
   },
   {
-    title: "מסלול אקדמי / תואר",
-    text: "תואר ראשון במערכות מידע או סטטיסטיקה. בסיס תיאורטי חזק ויוקרה מקצועית.",
+    title: "מסלול אקדמי / תעודה",
+    text: "לימודים מוסדרים במוסד מוכר. בסיס תיאורטי חזק ותעודה מוכרת בשוק העבודה.",
     price: "₪₪₪₪",
     border: "border-r-secondary",
     hover: "group-hover:text-secondary",
     items: [
-      { icon: "calendar_today", label: "3 שנים" },
-      { icon: "school", label: "תעודה אקדמית" },
+      { icon: "calendar_today", label: "1-3 שנים" },
+      { icon: "school", label: "תעודה מוכרת" },
     ],
-    cta: "מוסדות לימוד נבחרים",
+    cta: "מוסדות לימוד מוכרים (מל\"ג)",
+    href: "https://che.org.il/",
+    external: true,
     ctaHover: "hover:bg-secondary hover:text-on-secondary",
     priceColor: "bg-secondary-container/10 text-secondary",
   },
   {
     title: "למידה עצמית (Online)",
-    text: "למידה בקצב אישי דרך קורסים מקוונים ב-Coursera, Udemy או DataCamp.",
+    text: "למידה בקצב אישי דרך קורסים מקוונים ב-Coursera, Udemy או קמפוס IL.",
     price: "₪",
     border: "border-r-tertiary-container",
     hover: "group-hover:text-tertiary",
@@ -64,7 +75,9 @@ const PATHS = [
       { icon: "pace", label: "גמיש לחלוטין" },
       { icon: "devices", label: "לימוד מהבית" },
     ],
-    cta: "רשימת קורסים מומלצים",
+    cta: "קמפוס IL — קורסים בחינם",
+    href: "https://campus.gov.il/",
+    external: true,
     ctaHover: "hover:bg-tertiary hover:text-on-tertiary",
     priceColor: "bg-tertiary-container/10 text-tertiary",
   },
@@ -79,11 +92,25 @@ export default async function ProfessionDetailPage({
     notFound();
   }
 
-  const profession = await getProfessionById(idResult.data);
+  const [profession, savedIds, prefs] = await Promise.all([
+    getProfessionById(idResult.data),
+    getSavedProfessionIds(),
+    getProfilePrefs(),
+  ]);
 
   if (!profession) {
     notFound();
   }
+
+  const diagnosis = prefs?.disability_type?.trim() ?? "";
+  const matchScore = getProfessionMatchScore(
+    profession,
+    diagnosis,
+    prefs?.autism_level
+  );
+  const diagnosisLabel = prefs?.disability_type?.trim()
+    ? getDiagnosisLabel(prefs)
+    : "לא צוינה אבחנה";
 
   return (
     <div className="flex flex-col gap-12 text-right">
@@ -114,13 +141,17 @@ export default async function ProfessionDetailPage({
             <p className="mb-8 ml-auto max-w-xl text-lg leading-relaxed text-on-surface-variant">
               {profession.description}
             </p>
-            <div className="flex flex-row-reverse gap-4">
+            <div className="flex flex-row-reverse flex-wrap gap-4">
               <Link
                 href="/dashboard/learning"
                 className="amber-glow rounded-xl bg-secondary px-8 py-4 text-lg font-bold text-on-secondary shadow-lg transition-transform hover:scale-105"
               >
                 התחל מסלול הכשרה
               </Link>
+              <SaveProfessionButton
+                professionId={profession.id}
+                initialSaved={savedIds.includes(profession.id)}
+              />
               <Link
                 href="/dashboard/chat"
                 className="glass-card rounded-xl border border-primary px-8 py-4 text-lg font-bold text-primary transition-all hover:bg-primary-fixed"
@@ -155,15 +186,15 @@ export default async function ProfessionDetailPage({
         </div>
         <div className="glass-card flex flex-col items-center rounded-3xl p-8 text-center shadow-card">
           <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary-container/20 text-secondary">
-            <span className="material-symbols-outlined text-4xl">
-              bar_chart_4_bars
-            </span>
+            <span className="material-symbols-outlined text-4xl">school</span>
           </div>
-          <h3 className="mb-2 font-display text-2xl font-bold">ביקוש בשוק</h3>
-          <div className="mb-1 text-2xl font-bold tracking-tight text-secondary">
-            גבוה מאוד
+          <h3 className="mb-2 font-display text-2xl font-bold">השכלה נדרשת</h3>
+          <div className="mb-1 text-xl font-bold tracking-tight text-secondary">
+            {profession.education}
           </div>
-          <p className="text-on-surface-variant">גידול מתמשך בשנים האחרונות</p>
+          <p className="text-on-surface-variant">
+            אינטראקציה חברתית: {profession.social_interaction_level}
+          </p>
         </div>
         <div className="flex flex-col items-center rounded-3xl border border-primary/20 bg-primary-fixed p-8 text-center shadow-card">
           <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm">
@@ -175,10 +206,10 @@ export default async function ProfessionDetailPage({
             התאמה אישית
           </h3>
           <div className="mb-1 text-2xl font-bold tracking-tight text-on-primary-fixed">
-            9.5/10
+            {matchScore}%
           </div>
           <p className="text-on-primary-fixed-variant">
-            {profession.social_interaction_level}
+            מחושב לפי: {diagnosisLabel}
           </p>
         </div>
       </section>
@@ -274,11 +305,29 @@ export default async function ProfessionDetailPage({
                   </div>
                 ))}
               </div>
-              <button
-                className={`w-full rounded-xl bg-surface-container-high py-4 text-lg font-bold shadow-sm transition-all ${p.ctaHover}`}
-              >
-                {p.cta}
-              </button>
+              {p.external ? (
+                <a
+                  href={p.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`flex w-full items-center justify-center gap-2 rounded-xl bg-surface-container-high py-4 text-lg font-bold shadow-sm transition-all ${p.ctaHover}`}
+                >
+                  {p.cta}
+                  <span className="material-symbols-outlined text-base">
+                    open_in_new
+                  </span>
+                </a>
+              ) : (
+                <Link
+                  href={p.href}
+                  className={`flex w-full items-center justify-center gap-2 rounded-xl bg-surface-container-high py-4 text-lg font-bold shadow-sm transition-all ${p.ctaHover}`}
+                >
+                  {p.cta}
+                  <span className="material-symbols-outlined text-base">
+                    arrow_back
+                  </span>
+                </Link>
+              )}
             </div>
           ))}
         </div>

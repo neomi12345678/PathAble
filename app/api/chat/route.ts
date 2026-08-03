@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getChatMessages, sendChatMessage } from "@/lib/data";
 import { getAuthUser } from "@/lib/data/auth";
+import { awardBadge, BADGES } from "@/lib/data/achievements";
 import { logger } from "@/lib/logger";
 import { chatMessageSchema, parseBody } from "@/utils/validation";
 
@@ -34,6 +35,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     const response = await sendChatMessage(parsed.data.message);
+    await awardBadge(user.id, BADGES.firstChat);
     return NextResponse.json({ data: response });
   } catch (error) {
     logger.error("Chat send failed", { error: String(error) });

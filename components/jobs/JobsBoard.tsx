@@ -63,7 +63,7 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
       if (onlyRemote && !job.work_from_home) return false;
       if (onlyLowSocial && job.social_interaction_level !== "נמוך") return false;
       if (onlyWithSupport && job.support_features.length === 0) return false;
-      if (onlyMyDiagnosis && !jobMatchesDiagnosis(job, diagnosis)) return false;
+      if (onlyMyDiagnosis && diagnosis && !jobMatchesDiagnosis(job, diagnosis)) return false;
       if (onlyMyArea && city?.trim() && !jobMatchesUserCity(job, city)) return false;
       if (scope !== "all" && job.scope !== scope) return false;
       if (q) {
@@ -100,7 +100,7 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
           </div>
           <p className="max-w-2xl text-sm text-on-surface-variant">
             {JOBS.subtitle}{" "}
-            {!profileLoading && (
+            {!profileLoading && diagnosis && (
               <>
                 ההתאמה מחושבת לפי:{" "}
                 <span className="font-black text-primary">{diagnosisLabel}</span>
@@ -111,6 +111,18 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
                     <span className="font-black text-primary">{city.trim()}</span>
                   </>
                 ) : null}
+              </>
+            )}
+            {!profileLoading && !diagnosis && (
+              <>
+                כדי לקבל דירוג התאמה אישי,{" "}
+                <a
+                  href="/onboarding?update"
+                  className="font-black text-primary underline-offset-2 hover:underline"
+                >
+                  השלימו את האבחנה בפרופיל
+                </a>
+                .
               </>
             )}
           </p>
@@ -161,15 +173,16 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
             <button
               type="button"
               onClick={() => setOnlyMyDiagnosis((v) => !v)}
+              disabled={!diagnosis}
               aria-pressed={onlyMyDiagnosis}
-              className={`flex h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all ${
+              className={`flex h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
                 onlyMyDiagnosis
                   ? "bg-amber-100 text-amber-800 shadow-md"
                   : "border border-outline-variant/40 bg-white/70 text-on-surface-variant hover:border-amber-400"
               }`}
             >
               <span className="material-symbols-outlined text-base">psychology</span>
-              מתאים ל-{diagnosisLabel}
+              {diagnosis ? `מתאים ל-${diagnosisLabel}` : "השלימו אבחנה בפרופיל"}
             </button>
             <button
               type="button"

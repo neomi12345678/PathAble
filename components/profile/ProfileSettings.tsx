@@ -32,6 +32,7 @@ export interface ProfileSettingsData {
   avatarId?: ProfileAvatarId;
   skills: string[];
   interests: ProfileInterest[];
+  emailNotifications: boolean;
 }
 
 interface ProfileSettingsProps {
@@ -86,11 +87,11 @@ export function ProfileSettings({ data }: ProfileSettingsProps) {
   });
   const [skills, setSkills] = useState(data.skills);
   const [interests, setInterests] = useState(data.interests);
-  const [prefs, setPrefs] = useState({
-    emailNotifications: true,
-    profileVisible: true,
-    darkMode: false,
-  });
+  const [emailNotifications, setEmailNotifications] = useState(
+    data.emailNotifications
+  );
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(data.avatarUrl);
   const [avatarId, setAvatarId] = useState<ProfileAvatarId | undefined>(
     data.avatarId
@@ -128,6 +129,7 @@ export function ProfileSettings({ data }: ProfileSettingsProps) {
           bio: form.bio.trim(),
           skills,
           interests: interests.filter((item) => item.checked).map((item) => item.id),
+          email_notifications: emailNotifications,
         }),
       });
 
@@ -147,6 +149,23 @@ export function ProfileSettings({ data }: ProfileSettingsProps) {
     }
   };
 
+  const handleDeleteAccount = async (): Promise<void> => {
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/profile", { method: "DELETE" });
+      if (!res.ok) {
+        const payload = (await res.json()) as { error?: string };
+        toast.error(payload.error ?? PROFILE.deleteError);
+        return;
+      }
+      window.location.href = "/";
+    } catch {
+      toast.error(PROFILE.deleteError);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleCancel = (): void => {
     setForm({
       firstName: data.firstName,
@@ -158,6 +177,7 @@ export function ProfileSettings({ data }: ProfileSettingsProps) {
     });
     setSkills(data.skills);
     setInterests(data.interests);
+    setEmailNotifications(data.emailNotifications);
   };
 
   const removeSkill = (skill: string): void => {
@@ -255,14 +275,14 @@ export function ProfileSettings({ data }: ProfileSettingsProps) {
           <div className="relative flex flex-col justify-between overflow-hidden rounded-[32px] bg-primary p-5 text-white shadow-2xl">
             <div className="relative z-10">
               <h4 className="mb-2 font-display text-lg font-bold">
-                {PROFILE.premiumTitle}
+                {PROFILE.advisorTitle}
               </h4>
-              <p className="mb-4 text-sm opacity-80">{PROFILE.premiumDesc}</p>
+              <p className="mb-4 text-sm opacity-80">{PROFILE.advisorDesc}</p>
               <Link
                 href="/dashboard/chat"
                 className="inline-block rounded-xl bg-white px-6 py-2 text-sm font-bold text-primary transition-colors hover:bg-secondary-fixed"
               >
-                {PROFILE.premiumCta}
+                {PROFILE.advisorCta}
               </Link>
             </div>
             <span className="material-symbols-outlined absolute -bottom-4 -left-4 rotate-12 text-8xl opacity-10">
@@ -439,25 +459,14 @@ export function ProfileSettings({ data }: ProfileSettingsProps) {
           <div className="glass-card glow-shadow space-y-5 rounded-3xl p-5">
             <Toggle
               id="email-notifications"
-              checked={prefs.emailNotifications}
-              onChange={(v) => setPrefs((p) => ({ ...p, emailNotifications: v }))}
+              checked={emailNotifications}
+              onChange={setEmailNotifications}
               label={PROFILE.emailNotifications}
               description={PROFILE.emailNotificationsDesc}
             />
-            <Toggle
-              id="profile-visible"
-              checked={prefs.profileVisible}
-              onChange={(v) => setPrefs((p) => ({ ...p, profileVisible: v }))}
-              label={PROFILE.profileVisible}
-              description={PROFILE.profileVisibleDesc}
-            />
-            <Toggle
-              id="dark-mode"
-              checked={prefs.darkMode}
-              onChange={(v) => setPrefs((p) => ({ ...p, darkMode: v }))}
-              label={PROFILE.darkMode}
-              description={PROFILE.darkModeDesc}
-            />
+            <p className="text-xs leading-relaxed text-on-surface-variant">
+              {PROFILE.preferencesHint}
+            </p>
           </div>
         </div>
 
@@ -481,32 +490,50 @@ export function ProfileSettings({ data }: ProfileSettingsProps) {
                 chevron_left
               </span>
             </Link>
-            <div className="flex w-full items-center justify-between rounded-xl bg-surface-container-low p-4">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-on-surface-variant">
-                  verified_user
+            {confirmDelete ? (
+              <div className="space-y-3 rounded-xl border border-error/30 bg-error-container/30 p-4">
+                <p className="text-sm font-bold text-error">
+                  {PROFILE.deleteConfirmText}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteAccount()}
+                    disabled={deleting}
+                    className="flex-1 rounded-lg bg-error py-2.5 text-sm font-bold text-white transition-all hover:brightness-110 disabled:opacity-50"
+                  >
+                    {deleting ? PROFILE.deleting : PROFILE.deleteConfirmCta}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(false)}
+                    disabled={deleting}
+                    className="flex-1 rounded-lg bg-white py-2.5 text-sm font-bold text-on-surface transition-all hover:bg-surface-container disabled:opacity-50"
+                  >
+                    {PROFILE.cancel}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className="group flex w-full items-center justify-between rounded-xl bg-error-container/30 p-4 transition-all hover:bg-error-container/50"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-error">delete_forever</span>
+                  <span className="text-sm font-medium text-error">{PROFILE.deleteAccount}</span>
+                </div>
+                <span className="material-symbols-outlined text-error transition-transform group-hover:-translate-x-1">
+                  chevron_left
                 </span>
-                <span className="text-sm font-medium">{PROFILE.twoFactor}</span>
-              </div>
-              <span className="text-xs font-bold text-primary">{PROFILE.twoFactorInactive}</span>
-            </div>
-            <button
-              type="button"
-              className="group flex w-full items-center justify-between rounded-xl bg-error-container/30 p-4 transition-all hover:bg-error-container/50"
-            >
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-error">delete_forever</span>
-                <span className="text-sm font-medium text-error">{PROFILE.deleteAccount}</span>
-              </div>
-              <span className="material-symbols-outlined text-error transition-transform group-hover:-translate-x-1">
-                chevron_left
-              </span>
-            </button>
+              </button>
+            )}
           </div>
         </div>
       </section>
 
-      <div className="fixed bottom-4 left-0 right-0 z-40 px-4 md:hidden">
+      <div className="fixed bottom-20 left-0 right-0 z-40 px-4 md:hidden">
         <button
           type="button"
           onClick={() => void handleSave()}

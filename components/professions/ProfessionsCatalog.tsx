@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import toast from "react-hot-toast";
 import type { Profession } from "@/types";
 import { ProfessionCard } from "@/components/professions/ProfessionCard";
 import { getProfessionMatchScore, professionMatchesDiagnosis } from "@/lib/disability-matching";
@@ -72,7 +73,37 @@ export function ProfessionsCatalog({
   professions,
   savedIds,
 }: ProfessionsCatalogProps) {
+  const [saved, setSaved] = useState<Set<string>>(new Set(savedIds));
   const [search, setSearch] = useState("");
+
+  const toggleSave = async (
+    professionId: string,
+    nextSaved: boolean
+  ): Promise<void> => {
+    setSaved((prev) => {
+      const next = new Set(prev);
+      if (nextSaved) next.add(professionId);
+      else next.delete(professionId);
+      return next;
+    });
+    try {
+      const res = await fetch("/api/professions/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ professionId, saved: nextSaved }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(nextSaved ? "המקצוע נשמר" : "המקצוע הוסר מהשמורים");
+    } catch {
+      setSaved((prev) => {
+        const next = new Set(prev);
+        if (nextSaved) next.delete(professionId);
+        else next.add(professionId);
+        return next;
+      });
+      toast.error("שגיאה בשמירת המקצוע");
+    }
+  };
   const [activeCategories, setActiveCategories] = useState<Set<string>>(
     new Set()
   );
@@ -96,7 +127,7 @@ export function ProfessionsCatalog({
         fitsDiagnosis: professionMatchesDiagnosis(p, diagnosis),
       }))
       .filter((item) => {
-        if (onlyMyDiagnosis && !item.fitsDiagnosis) return false;
+        if (onlyMyDiagnosis && diagnosis && !item.fitsDiagnosis) return false;
         if (item.match < minMatch) return false;
         if (
           activeCategories.size > 0 &&
@@ -161,10 +192,25 @@ export function ProfessionsCatalog({
             מצא את הייעוד המקצועי שלך
           </h1>
           <p className="mx-auto max-w-xl text-sm text-on-surface-variant">
-            מקצועות מותאמים לאבחנה שלך:{" "}
-            <span className="font-black text-primary">
-              {profileLoading ? "..." : diagnosisLabel}
-            </span>
+            {profileLoading ? (
+              "טוען פרופיל..."
+            ) : diagnosis ? (
+              <>
+                מקצועות מותאמים לאבחנה שלך:{" "}
+                <span className="font-black text-primary">{diagnosisLabel}</span>
+              </>
+            ) : (
+              <>
+                כדי לדרג התאמה אישית,{" "}
+                <a
+                  href="/onboarding?update"
+                  className="font-black text-primary underline-offset-2 hover:underline"
+                >
+                  השלימו את האבחנה
+                </a>
+                .
+              </>
+            )}
           </p>
         </div>
         <div className="search-container relative w-full max-w-xl">
@@ -224,18 +270,25 @@ export function ProfessionsCatalog({
               <p className="mb-5 text-xs font-black uppercase tracking-widest text-outline">
                 התאמה לאבחנה
               </p>
-              <label className="group flex cursor-pointer flex-row-reverse items-center justify-end gap-3">
+              <label
+                className={`group flex flex-row-reverse items-center justify-end gap-3 ${
+                  diagnosis ? "cursor-pointer" : "cursor-not-allowed opacity-50"
+                }`}
+              >
                 <span className="font-bold text-on-surface/80 transition-colors group-hover:text-primary-container">
-                  רק מקצועות שמתאימים ל-{diagnosisLabel}
+                  {diagnosis
+                    ? `רק מקצועות שמתאימים ל-${diagnosisLabel}`
+                    : "השלימו אבחנה בהיכרות / בפרופיל כדי לסנן לפי התאמה"}
                 </span>
                 <input
                   type="checkbox"
                   checked={onlyMyDiagnosis}
+                  disabled={!diagnosis}
                   onChange={(e) => {
                     setOnlyMyDiagnosis(e.target.checked);
                     setPage(1);
                   }}
-                  className="h-5 w-5 rounded-md border-outline-variant text-primary-container focus:ring-primary-container/20"
+                  className="h-5 w-5 rounded-md border-outline-variant text-primary-container focus:ring-primary-container/20 disabled:opacity-40"
                 />
               </label>
             </div>
@@ -331,9 +384,10 @@ export function ProfessionsCatalog({
                 <ProfessionCard
                   key={item.profession.id}
                   profession={item.profession}
-                  isSaved={savedIds.includes(item.profession.id)}
+                  isSaved={saved.has(item.profession.id)}
                   match={item.match}
                   diagnosisLabel={diagnosisLabel}
+                  onToggleSave={(id, next) => void toggleSave(id, next)}
                 />
               ))}
             </div>

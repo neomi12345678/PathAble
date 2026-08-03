@@ -8,6 +8,7 @@ interface ProfessionCardProps {
   index?: number;
   match?: number;
   diagnosisLabel?: string;
+  onToggleSave?: (professionId: string, saved: boolean) => void;
 }
 
 function hashId(id: string): number {
@@ -26,6 +27,7 @@ export function ProfessionCard({
   isSaved = false,
   match,
   diagnosisLabel,
+  onToggleSave,
 }: ProfessionCardProps) {
   const image = getProfessionImage(profession.id);
 
@@ -43,12 +45,32 @@ export function ProfessionCard({
             {diagnosisLabel ? ` · ${diagnosisLabel}` : ""}
           </div>
         )}
-        {isSaved && (
-          <div className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-secondary shadow-md">
-            <span className="material-symbols-outlined icon-fill text-base">
+        {onToggleSave ? (
+          <button
+            type="button"
+            onClick={() => onToggleSave(profession.id, !isSaved)}
+            aria-pressed={isSaved}
+            aria-label={isSaved ? "הסר משמורים" : "שמור מקצוע"}
+            className={`absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-full shadow-md transition-all hover:scale-110 active:scale-95 ${
+              isSaved
+                ? "bg-secondary-container text-on-secondary-container"
+                : "bg-white/90 text-outline hover:text-secondary"
+            }`}
+          >
+            <span
+              className={`material-symbols-outlined text-base ${isSaved ? "icon-fill" : ""}`}
+            >
               star
             </span>
-          </div>
+          </button>
+        ) : (
+          isSaved && (
+            <div className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-secondary shadow-md">
+              <span className="material-symbols-outlined icon-fill text-base">
+                star
+              </span>
+            </div>
+          )
         )}
       </div>
 

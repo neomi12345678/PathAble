@@ -22,6 +22,8 @@ import {
 
 } from "@/lib/data/profile";
 
+import { awardBadge, BADGES } from "@/lib/data/achievements";
+
 
 
 const diagnosisEnum = z.enum(
@@ -156,6 +158,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       },
       user.email
     );
+
+    await awardBadge(user.id, BADGES.onboarding);
 
     const res = NextResponse.json({ ok: true, profile });
     res.cookies.set("pathable_onboarded", "1", {

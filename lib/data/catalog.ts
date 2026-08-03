@@ -1,5 +1,6 @@
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { enrichDisabilityFit } from "@/lib/jobs/drushim-sync";
 import type { Job, Profession, Question } from "@/types";
 
@@ -161,4 +162,36 @@ export async function getSavedProfessionIdsFromDb(
     .eq("user_id", userId);
   if (error || !data) return [];
   return data.map((r) => r.profession_slug);
+}
+
+export async function setSavedProfessionInDb(
+  userId: string,
+  professionSlug: string,
+  saved: boolean
+): Promise<void> {
+  if (!isSupabaseConfigured()) throw new Error("Supabase not configured");
+  const supabase = createAdminClient();
+
+  if (!saved) {
+    const { error } = await supabase
+      .from("saved_professions")
+      .delete()
+      .eq("user_id", userId)
+      .eq("profession_slug", professionSlug);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  const { data: existing } = await supabase
+    .from("saved_professions")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("profession_slug", professionSlug)
+    .maybeSingle();
+  if (existing) return;
+
+  const { error } = await supabase
+    .from("saved_professions")
+    .insert({ user_id: userId, profession_slug: professionSlug });
+  if (error) throw new Error(error.message);
 }

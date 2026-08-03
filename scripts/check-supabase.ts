@@ -2,6 +2,8 @@
  * Check Supabase connection and schema.
  * Run: npm run check:supabase
  */
+// הערה: מכונת הפיתוח המקומית מריצה פרוקסי שמיירט TLS, ולכן אימות תעודות נכשל.
+// העקיפה חלה על סקריפטים מקומיים בלבד — קוד הפרודקשן לא מבטל אימות TLS.
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 import { getSupabaseHealthStatus } from "../lib/supabase/health";

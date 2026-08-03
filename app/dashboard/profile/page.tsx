@@ -90,6 +90,7 @@ export default async function ProfilePage() {
         avatarId,
         skills: extras.skills,
         interests: extras.interests,
+        emailNotifications: extras.emailNotifications,
       }}
     />
   );

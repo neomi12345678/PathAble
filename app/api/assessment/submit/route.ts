@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { submitAssessment } from "@/lib/data";
 import { mapAssessmentError } from "@/lib/data/assessment";
 import { getAuthUser } from "@/lib/data/auth";
+import { awardBadge, BADGES } from "@/lib/data/achievements";
 import { logger } from "@/lib/logger";
 import { assessmentSubmitSchema, parseBody } from "@/utils/validation";
 
@@ -20,6 +21,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     const result = await submitAssessment(parsed.data.answers);
+    await awardBadge(user.id, BADGES.assessment);
     return NextResponse.json({ data: result });
   } catch (error) {
     const raw = error instanceof Error ? error.message : String(error);

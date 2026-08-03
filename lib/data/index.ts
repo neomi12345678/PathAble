@@ -187,7 +187,7 @@ export async function getLeaderboard() {
 export async function getProfileExtrasData() {
   const user = await getAuthUser();
   if (!user) {
-    return { bio: "", skills: [], interests: [] };
+    return { bio: "", skills: [], interests: [], emailNotifications: true };
   }
   return getProfileExtras(user.id);
 }

@@ -1,6 +1,10 @@
 import type { Job, Profession } from "@/types";
 import type { AutismLevel } from "@/lib/user-profile";
 
+/** מקסימום בונוס קרבה — משאירים מרווח מתחת ל-99 כדי שעיר/מטרו ישפיעו גם על משרות חזקות */
+const MAX_PROXIMITY_BONUS = 18;
+const SCORE_CAP_BEFORE_PROXIMITY = 99 - MAX_PROXIMITY_BONUS;
+
 function hashId(id: string): number {
   let sum = 0;
   for (const ch of id) sum += ch.charCodeAt(0);
@@ -72,8 +76,22 @@ function applyProximityBonus(
   return score;
 }
 
+/** ציון בסיס (אבחנה/תפקוד) נחתך ל-81 כדי שבונוס קרבה יישמר מתחת ל-99 */
+function finalizeJobScore(
+  rawScore: number,
+  job: Job,
+  userCity?: string
+): number {
+  const capped = Math.min(
+    SCORE_CAP_BEFORE_PROXIMITY,
+    Math.max(40, rawScore)
+  );
+  return Math.min(99, Math.max(40, applyProximityBonus(capped, job, userCity)));
+}
+
 function diagnosisInFit(diagnosis: string, fitList: string[]): number {
   const d = normalizeDiagnosis(diagnosis);
+  if (!d) return -1;
   const idx = fitList.findIndex(
     (item) => item === d || item.includes(d) || d.includes(item)
   );
@@ -81,6 +99,7 @@ function diagnosisInFit(diagnosis: string, fitList: string[]): number {
 }
 
 export function jobMatchesDiagnosis(job: Job, diagnosis: string): boolean {
+  if (!normalizeDiagnosis(diagnosis)) return false;
   return diagnosisInFit(diagnosis, job.disability_fit) !== -1;
 }
 
@@ -88,6 +107,7 @@ export function professionMatchesDiagnosis(
   profession: Profession,
   diagnosis: string
 ): boolean {
+  if (!normalizeDiagnosis(diagnosis)) return false;
   return diagnosisInFit(diagnosis, profession.disability_fit) !== -1;
 }
 
@@ -116,6 +136,7 @@ function applyAutismLevelProfessionBonus(
     if (social === "גבוה") adjusted -= 4;
   } else if (autismLevel === "גבוה") {
     if (social === "נמוך" || social === "בינוני") adjusted += 4;
+    if (social === "גבוה") adjusted += 2;
   }
 
   return adjusted;
@@ -139,39 +160,58 @@ function applyAutismLevelJobBonus(
     if (social === "גבוה") adjusted -= 4;
   } else if (autismLevel === "גבוה") {
     if (social === "נמוך" || social === "בינוני") adjusted += 4;
+    if (social === "גבוה") adjusted += 2;
     if (job.support_features.length >= 3) adjusted -= 2;
   }
 
   return adjusted;
 }
 
-/** ציון התאמת מקצוע לאבחנה (0–99) */
+function applyAutismSignalsWithoutLevel(score: number, job: Job): number {
+  let adjusted = score;
+  if (job.social_interaction_level === "נמוך") adjusted += 8;
+  if (job.support_features.length >= 2) adjusted += 4;
+  if (job.work_from_home) adjusted += 3;
+  return adjusted;
+}
+
+/** ציון התאמת מקצוע לאבחנה (40–99). בלי אבחנה — ציון ניטרלי. */
 export function getProfessionMatchScore(
   profession: Profession,
   diagnosis: string,
   autismLevel?: AutismLevel
 ): number {
-  const fitIdx = diagnosisInFit(diagnosis, profession.disability_fit);
+  const d = normalizeDiagnosis(diagnosis);
+  if (!d) {
+    return 52 + (hashId(profession.id) % 6);
+  }
 
+  const fitIdx = diagnosisInFit(d, profession.disability_fit);
+
+  let score: number;
   if (fitIdx === -1) {
-    return 52 + (hashId(profession.id + diagnosis) % 18);
+    score = 48 + (hashId(profession.id + d) % 14);
+    if (d === "אוטיזם" && autismLevel) {
+      score = applyAutismLevelProfessionBonus(score, profession, autismLevel);
+    } else if (
+      d === "אוטיזם" &&
+      profession.social_interaction_level === "נמוך"
+    ) {
+      score += 4;
+    }
+  } else {
+    score = 90 - fitIdx * 5;
+    if (d === "אוטיזם" && autismLevel) {
+      score = applyAutismLevelProfessionBonus(score, profession, autismLevel);
+    } else if (
+      d === "אוטיזם" &&
+      profession.social_interaction_level === "נמוך"
+    ) {
+      score += 6;
+    }
   }
 
-  let score = 90 - fitIdx * 5;
-
-  if (normalizeDiagnosis(diagnosis) === "אוטיזם" && autismLevel) {
-    score = applyAutismLevelProfessionBonus(score, profession, autismLevel);
-  } else if (
-    normalizeDiagnosis(diagnosis) === "אוטיזם" &&
-    profession.social_interaction_level === "נמוך"
-  ) {
-    score += 6;
-  }
-
-  if (
-    normalizeDiagnosis(diagnosis) === "חרדה חברתית" &&
-    profession.social_interaction_level === "נמוך"
-  ) {
+  if (d === "חרדה חברתית" && profession.social_interaction_level === "נמוך") {
     score += 5;
   }
 
@@ -190,36 +230,41 @@ export function sortProfessionsByDiagnosis(
   );
 }
 
-/** ציון התאמת משרה לאבחנה (0–99) */
+/** ציון התאמת משרה לאבחנה (40–99). בלי אבחנה — ניטרלי + קרבה בלבד. */
 export function getJobMatchScore(
   job: Job,
   diagnosis: string,
   autismLevel?: AutismLevel,
   userCity?: string
 ): number {
-  const fitIdx = diagnosisInFit(diagnosis, job.disability_fit);
+  const d = normalizeDiagnosis(diagnosis);
+
+  if (!d) {
+    return finalizeJobScore(55 + (hashId(job.id) % 5), job, userCity);
+  }
+
+  const fitIdx = diagnosisInFit(d, job.disability_fit);
+  let score: number;
 
   if (fitIdx === -1) {
-    const base = 50 + (hashId(job.id + diagnosis) % 20);
-    return Math.min(
-      99,
-      Math.max(40, applyProximityBonus(base, job, userCity))
-    );
+    score = 50 + (hashId(job.id + d) % 16);
+    // רמת תפקוד משפיעה גם בלי fit — לפי social/support
+    if (d === "אוטיזם" && autismLevel) {
+      score = applyAutismLevelJobBonus(score, job, autismLevel);
+    } else if (d === "אוטיזם") {
+      score = applyAutismSignalsWithoutLevel(score, job);
+    }
+  } else {
+    score = 88 - fitIdx * 4;
+    if (d === "אוטיזם" && autismLevel) {
+      score = applyAutismLevelJobBonus(score, job, autismLevel);
+    } else if (d === "אוטיזם") {
+      score = applyAutismSignalsWithoutLevel(score, job);
+    }
   }
 
-  let score = 88 - fitIdx * 4;
-
-  if (normalizeDiagnosis(diagnosis) === "אוטיזם" && autismLevel) {
-    score = applyAutismLevelJobBonus(score, job, autismLevel);
-  } else if (normalizeDiagnosis(diagnosis) === "אוטיזם") {
-    if (job.social_interaction_level === "נמוך") score += 8;
-    if (job.support_features.length >= 2) score += 4;
-    if (job.work_from_home) score += 3;
-  }
-
-  score = applyProximityBonus(score, job, userCity);
-
-  return Math.min(99, Math.max(40, score + (hashId(job.id) % 3)));
+  score += hashId(job.id) % 3;
+  return finalizeJobScore(score, job, userCity);
 }
 
 export function sortJobsByDiagnosis(

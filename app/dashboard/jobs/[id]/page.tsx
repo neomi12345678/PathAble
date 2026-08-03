@@ -50,7 +50,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     job.profession_id ? getProfessionById(job.profession_id) : Promise.resolve(null),
   ]);
 
-  const diagnosis = prefs?.disability_type ?? "אוטיזם";
+  const diagnosis = prefs?.disability_type?.trim() ?? "";
   const matchScore = getJobMatchScore(
     job,
     diagnosis,

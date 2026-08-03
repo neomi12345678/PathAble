@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { UserAvatar } from "@/components/profile/UserAvatar";
 
-const NAV_ITEMS = [
+export const NAV_ITEMS = [
   { href: "/dashboard", label: "לוח בקרה", icon: "dashboard" },
   { href: "/dashboard/assessment", label: "אבחון תעסוקתי", icon: "quiz" },
   { href: "/dashboard/professions", label: "מאגר מקצועות", icon: "work" },

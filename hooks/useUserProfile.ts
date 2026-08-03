@@ -40,10 +40,10 @@ export function useUserProfile(): {
     };
   }, []);
 
-  const diagnosis = profile?.disability_type ?? "אוטיזם";
-  const diagnosisLabel = profile
+  const diagnosis = profile?.disability_type?.trim() ?? "";
+  const diagnosisLabel = profile?.disability_type?.trim()
     ? getDiagnosisLabel(profile)
-    : "אוטיזם";
+    : "לא צוינה אבחנה";
 
   return {
     profile,

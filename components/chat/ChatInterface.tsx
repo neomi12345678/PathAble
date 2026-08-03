@@ -18,7 +18,13 @@ function formatTime(iso: string): string {
   return `${d.getHours()}:${d.getMinutes().toString().padStart(2, "0")}`;
 }
 
-export function ChatInterface() {
+export interface ChatStats {
+  completionPercent: number;
+  matchingProfessions: number;
+  matchingJobs: number;
+}
+
+export function ChatInterface({ stats }: { stats: ChatStats }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -49,7 +55,7 @@ export function ChatInterface() {
 
     const userMessage: ChatMessage = {
       id: `msg-user-${Date.now()}`,
-      session_id: "demo-session-001",
+      session_id: "pending",
       role: "user",
       message: text.trim(),
       created_at: new Date().toISOString(),
@@ -111,51 +117,64 @@ export function ChatInterface() {
             <div className="sidebar-item rounded-2xl border border-white/80 bg-white/60 p-6">
               <div className="mb-3 flex items-end justify-between">
                 <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-primary">
-                  ניתוח פרופיל
+                  השלמת פרופיל
                 </p>
-                <p className="text-sm font-bold text-on-surface">85%</p>
+                <p className="text-sm font-bold text-on-surface">
+                  {stats.completionPercent}%
+                </p>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-primary/5">
-                <div className="h-full w-[85%] rounded-full bg-gradient-to-r from-primary to-primary-container" />
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-primary to-primary-container transition-all"
+                  style={{ width: `${stats.completionPercent}%` }}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="sidebar-item flex flex-col items-center rounded-2xl border border-white/80 bg-white/60 p-5 text-center">
+              <a
+                href="/dashboard/professions"
+                className="sidebar-item flex flex-col items-center rounded-2xl border border-white/80 bg-white/60 p-5 text-center transition-all hover:border-secondary/40"
+              >
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/10">
                   <span className="material-symbols-outlined text-xl text-secondary">
                     auto_awesome
                   </span>
                 </div>
                 <p className="text-[11px] font-bold uppercase text-on-surface-variant/50">
-                  הצעות
+                  מקצועות מתאימים
                 </p>
                 <p className="font-display text-2xl font-black text-secondary">
-                  12
+                  {stats.matchingProfessions}
                 </p>
-              </div>
-              <div className="sidebar-item flex flex-col items-center rounded-2xl border border-white/80 bg-white/60 p-5 text-center">
+              </a>
+              <a
+                href="/dashboard/jobs"
+                className="sidebar-item flex flex-col items-center rounded-2xl border border-white/80 bg-white/60 p-5 text-center transition-all hover:border-primary/40"
+              >
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
                   <span className="material-symbols-outlined text-xl text-primary">
                     work
                   </span>
                 </div>
                 <p className="text-[11px] font-bold uppercase text-on-surface-variant/50">
-                  משרות
+                  משרות מתאימות
                 </p>
-                <p className="font-display text-2xl font-black text-primary">8</p>
-              </div>
+                <p className="font-display text-2xl font-black text-primary">
+                  {stats.matchingJobs}
+                </p>
+              </a>
             </div>
           </div>
           <div className="mt-auto w-full pt-8">
-            <button
-              type="button"
+            <a
+              href="/dashboard/jobs"
               className="group flex w-full items-center justify-center gap-3 rounded-2xl bg-haredi-primary py-4 font-bold text-white shadow-xl shadow-primary/10 transition-all hover:bg-primary"
             >
               <span className="material-symbols-outlined text-xl group-hover:animate-bounce">
-                call
+                work
               </span>
-              שיחת ייעוץ חיה
-            </button>
+              למשרות המותאמות לך
+            </a>
           </div>
         </div>
       </aside>

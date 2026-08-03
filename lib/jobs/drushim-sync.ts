@@ -111,42 +111,46 @@ function inferDisabilityFit(
   workFromHome: boolean,
   socialLevel: string
 ): string[] {
-  const fits = new Set<string>(["אוטיזם"]);
+  /** בלי ברירת מחדל של אוטיזם — רק איתותים חיוביים מהטקסט */
+  const fits = new Set<string>();
   const text = `${title} ${description}`.toLowerCase();
 
-  if (/adhd|קשב|hyper/.test(text)) fits.add("ADHD");
-  if (/חרדה|social anxiety|חברתי/.test(text)) fits.add("חרדה חברתית");
+  if (/אוטיזם|autism|asd|רצף האוטיסט/.test(text)) fits.add("אוטיזם");
+  if (/adhd|הפרעת קשב|קשב וריכוז|\bhyper\b/.test(text)) fits.add("ADHD");
+  // לא /חברתי/ — תופס «פעילויות חברתיות» בטעות
+  if (/חרדה חברתית|social anxiety/.test(text)) fits.add("חרדה חברתית");
   if (/לקות למידה|dyslex|דיסלק/.test(text)) fits.add("לקות למידה");
-  if (/שמיע|כבד.?שמיע|hearing|deaf|סיעוד/.test(text)) fits.add("לקות שמיעה");
-  if (/ראייה|עיוור|blind|vision|low.?vision/.test(text)) fits.add("לקות ראייה");
-  if (/נגישות|כיסא.?גלגל|פיזי|mobility|נכות/.test(text)) fits.add("לקות פיזית");
-
-  const deskOrRemote =
-    workFromHome ||
-    /מהבית|remote|היברידי|משרד|שולחן|מחשב|הזנה|ניתוח|כתיב|תכנות|qa|data|cad|שרטוט|הנהל|בקרה|בדיקות/.test(
-      text
-    );
-
-  if (deskOrRemote) {
-    fits.add("לקות פיזית");
+  if (/לקות שמיעה|כבד.?שמיע|hearing.?impair|\bdeaf\b|חירש/.test(text)) {
     fits.add("לקות שמיעה");
   }
-
-  if (workFromHome || /כתוב|מייל|slack|async|טקסט|בכתב/.test(text)) {
-    fits.add("לקות שמיעה");
+  if (
+    /לקות ראייה|עיוור|קורא מסך|low.?vision|\bblind\b/.test(text)
+  ) {
     fits.add("לקות ראייה");
   }
+  if (
+    /לקות פיזית|כיסא.?גלגל|מוגבלות פיזית|mobility|נגישות פיזית/.test(text)
+  ) {
+    fits.add("לקות פיזית");
+  }
 
-  if (socialLevel === "נמוך") {
+  // סביבה שקטה + משימות מובנות — רמז עדין לאוטיזם/חרדה, לא לכל הלקויות
+  const structuredDesk =
+    socialLevel === "נמוך" &&
+    (workFromHome ||
+      /qa|בודק תוכנה|הזנת נתונים|data entry|ניתוח נתונים/.test(text));
+  if (structuredDesk) {
+    fits.add("אוטיזם");
     fits.add("חרדה חברתית");
-    fits.add("ADHD");
-    fits.add("לקות למידה");
   }
 
-  if (/ליווי|שילוב|mentor|מנטור|נגיש/.test(text)) {
-    fits.add("לקות פיזית");
-    fits.add("לקות ראייה");
+  // תקשורת כתובה מהבית — רלוונטי יותר ללקות שמיעה (לא לראייה)
+  if (workFromHome && /כתוב|מייל|slack|async|בכתב/.test(text)) {
     fits.add("לקות שמיעה");
+  }
+
+  if (/נגיש ללקוי.?ראי|מותאם.?ראייה|קורא מסך/.test(text)) {
+    fits.add("לקות ראייה");
   }
 
   return [...fits];

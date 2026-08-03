@@ -6,6 +6,7 @@ import {
   upsertUserProgress,
   getModuleProgressFromDb,
 } from "@/lib/data/modules";
+import { awardModuleBadges } from "@/lib/data/achievements";
 import { logger } from "@/lib/logger";
 import { parseBody, skillsProgressSchema } from "@/utils/validation";
 
@@ -67,6 +68,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       completed,
       { answeredQuestionIds, correctCount }
     );
+
+    if (completed) {
+      await awardModuleBadges(user.id, "skill");
+    }
 
     return NextResponse.json({
       data: {

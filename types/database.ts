@@ -27,6 +27,7 @@ export interface Database {
           bio: string | null;
           interests: string[] | null;
           skills: string[] | null;
+          preferences: Json | null;
           created_at: string;
         };
         Insert: {
@@ -46,6 +47,7 @@ export interface Database {
           bio?: string | null;
           interests?: string[] | null;
           skills?: string[] | null;
+          preferences?: Json | null;
           created_at?: string;
         };
         Update: {
@@ -65,6 +67,7 @@ export interface Database {
           bio?: string | null;
           interests?: string[] | null;
           skills?: string[] | null;
+          preferences?: Json | null;
           created_at?: string;
         };
         Relationships: [];

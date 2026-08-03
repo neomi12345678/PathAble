@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthUser } from "@/lib/data/auth";
 import {
+  deleteUserAccount,
   getProfilePrefsForUser,
   updateProfileDetails,
 } from "@/lib/data/profile";
+import { createClient } from "@/lib/supabase/server";
+import { logger } from "@/lib/logger";
 
 const updateProfileSchema = z.object({
   first_name: z.string().trim().min(1, "שם פרטי חובה").max(50),
@@ -14,6 +17,7 @@ const updateProfileSchema = z.object({
   bio: z.string().trim().max(500).optional().default(""),
   skills: z.array(z.string().trim().min(1).max(50)).max(20).optional().default([]),
   interests: z.array(z.string()).max(10).optional().default([]),
+  email_notifications: z.boolean().optional(),
 });
 
 export async function GET(): Promise<NextResponse> {
@@ -49,5 +53,20 @@ export async function PATCH(request: Request): Promise<NextResponse> {
 }
 
 export async function DELETE(): Promise<NextResponse> {
-  return NextResponse.json({ ok: true });
+  try {
+    const user = await getAuthUser();
+    if (!user) {
+      return NextResponse.json({ error: "לא מחובר" }, { status: 401 });
+    }
+
+    await deleteUserAccount(user.id);
+
+    const supabase = createClient();
+    await supabase.auth.signOut();
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    logger.error("Account deletion failed", { error: String(error) });
+    return NextResponse.json({ error: "שגיאה במחיקת החשבון" }, { status: 500 });
+  }
 }

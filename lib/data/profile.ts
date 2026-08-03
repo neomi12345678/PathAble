@@ -128,6 +128,7 @@ export interface ProfileUpdateInput {
   bio: string;
   skills: string[];
   interests: string[];
+  email_notifications?: boolean;
 }
 
 const VALID_INTEREST_IDS = new Set(
@@ -153,17 +154,41 @@ export async function updateProfileDetails(
     })
     .eq("id", userId);
   if (error) throw new Error(error.message);
+
+  if (input.email_notifications !== undefined) {
+    // עדכון נפרד — לא מפיל את שמירת הפרופיל אם המיגרציה (003) עדיין לא רצה
+    const { error: prefsError } = await supabase
+      .from("profiles")
+      .update({
+        preferences: { email_notifications: input.email_notifications },
+      })
+      .eq("id", userId);
+    if (prefsError) {
+      const { logger } = await import("@/lib/logger");
+      logger.warn("Preferences update failed (run migration 003)", {
+        error: prefsError.message,
+      });
+    }
+  }
+}
+
+/** מחיקת חשבון לצמיתות — מחיקת משתמש ה-auth מוחקת את כל הנתונים בקסקדה */
+export async function deleteUserAccount(userId: string): Promise<void> {
+  const supabase = createAdminClient();
+  const { error } = await supabase.auth.admin.deleteUser(userId);
+  if (error) throw new Error(error.message);
 }
 
 export async function getProfileExtras(userId: string): Promise<{
   bio: string;
   skills: string[];
   interests: ProfileInterest[];
+  emailNotifications: boolean;
 }> {
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("profiles")
-    .select("bio, skills, interests")
+    .select("bio, skills, interests, preferences")
     .eq("id", userId)
     .maybeSingle();
 
@@ -173,10 +198,13 @@ export async function getProfileExtras(userId: string): Promise<{
     checked: interestIds.includes(i.id),
   }));
 
+  const prefs = (data?.preferences ?? {}) as Record<string, unknown>;
+
   return {
     bio: data?.bio ?? "",
     skills: (data?.skills as string[] | null) ?? [],
     interests,
+    emailNotifications: prefs.email_notifications !== false,
   };
 }
 

@@ -4,6 +4,7 @@ import {
   getLearningModuleByIdFromDb,
   upsertUserProgress,
 } from "@/lib/data/modules";
+import { awardModuleBadges } from "@/lib/data/achievements";
 import { logger } from "@/lib/logger";
 import { learningCompleteSchema, parseBody } from "@/utils/validation";
 
@@ -40,6 +41,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     await upsertUserProgress(user.id, moduleId, "learning", 100, true);
+    await awardModuleBadges(user.id, "learning");
 
     return NextResponse.json({
       data: { passed: true, progress: 100, completed: true },

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { APP_NAME, RIGHTS } from "@/utils/texts";
 import { getRightsData } from "@/lib/data";
 import { IMAGES } from "@/lib/assets/images";
+import { RightsCalculator } from "@/components/rights/RightsCalculator";
 
 export const metadata: Metadata = {
   title: `${RIGHTS.title} | ${APP_NAME}`,
@@ -10,9 +11,9 @@ export const metadata: Metadata = {
 };
 
 const QUICK = [
-  { icon: "payments", title: "שכר ובונוסים", text: "מינימום, שעות נוספות והבראה", wrap: "bg-primary-container/20 text-primary" },
-  { icon: "event_busy", title: "חופשות ומחלה", text: "צבירת ימים, פדיון והודעה מוקדמת", wrap: "bg-secondary-container/20 text-secondary" },
-  { icon: "work_history", title: "סיום העסקה", text: "פיצויים, שימוע ומכתב המלצה", wrap: "bg-tertiary-container/20 text-tertiary" },
+  { icon: "payments", title: "שכר ובונוסים", text: "מינימום, שעות נוספות והבראה", wrap: "bg-primary-container/20 text-primary", href: "#calculator" },
+  { icon: "event_busy", title: "חופשות ומחלה", text: "צבירת ימים, פדיון והודעה מוקדמת", wrap: "bg-secondary-container/20 text-secondary", href: "#topics" },
+  { icon: "work_history", title: "סיום העסקה", text: "פיצויים, שימוע ומכתב המלצה", wrap: "bg-tertiary-container/20 text-tertiary", href: "#faq" },
 ];
 
 export default async function RightsPage() {
@@ -25,7 +26,7 @@ export default async function RightsPage() {
           <span className="material-symbols-outlined icon-fill text-[18px]">
             verified_user
           </span>
-          <span className="text-sm font-bold">מידע רשמי ומעודכן</span>
+          <span className="text-sm font-bold">מידע כללי מונגש בשפה פשוטה</span>
         </div>
         <h1 className="mb-6 font-display text-4xl font-bold leading-tight text-on-surface md:text-5xl">
           זכויות העובדים שלך,
@@ -38,9 +39,10 @@ export default async function RightsPage() {
         </p>
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 md:grid-cols-3">
           {QUICK.map((q) => (
-            <div
+            <a
               key={q.title}
-              className="glass-card group flex cursor-pointer flex-col items-center rounded-2xl p-8 text-center transition-all duration-300 hover:scale-[1.03]"
+              href={q.href}
+              className="glass-card group flex flex-col items-center rounded-2xl p-8 text-center transition-all duration-300 hover:scale-[1.03]"
             >
               <div
                 className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${q.wrap}`}
@@ -49,12 +51,12 @@ export default async function RightsPage() {
               </div>
               <h3 className="mb-2 font-display text-xl font-semibold">{q.title}</h3>
               <p className="text-on-surface-variant">{q.text}</p>
-            </div>
+            </a>
           ))}
         </div>
       </header>
 
-      <section>
+      <section id="topics">
         <div className="mb-8 flex items-center justify-between">
           <h2 className="border-r-4 border-primary pr-4 font-display text-3xl font-bold">
             {RIGHTS.topics}
@@ -105,54 +107,7 @@ export default async function RightsPage() {
         </div>
       </section>
 
-      <section className="glass-card rounded-3xl border-primary-container/20 p-10">
-        <div className="mb-10 text-center">
-          <h2 className="mb-3 font-display text-3xl font-bold">
-            מחשבון זכויות אישי
-          </h2>
-          <p className="text-on-surface-variant">
-            הזן את נתוניך וקבל הערכה מיידית של הזכויות המגיעות לך
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-2">
-            <label className="block px-1 text-sm font-bold text-on-surface-variant">
-              ותק במקום העבודה
-            </label>
-            <select className="h-12 w-full rounded-xl border border-outline-variant bg-white/50 px-3 focus:border-primary focus:ring-primary">
-              <option>פחות משנה</option>
-              <option>1-3 שנים</option>
-              <option>3-5 שנים</option>
-              <option>מעל 5 שנים</option>
-            </select>
-          </div>
-          <div className="space-y-2">
-            <label className="block px-1 text-sm font-bold text-on-surface-variant">
-              סוג העסקה
-            </label>
-            <select className="h-12 w-full rounded-xl border border-outline-variant bg-white/50 px-3 focus:border-primary focus:ring-primary">
-              <option>שכיר חודשי</option>
-              <option>שכיר שעתי</option>
-              <option>פרילנסר (חשבונית)</option>
-            </select>
-          </div>
-          <div className="space-y-2">
-            <label className="block px-1 text-sm font-bold text-on-surface-variant">
-              היקף משרה (%)
-            </label>
-            <input
-              type="number"
-              placeholder="למשל: 100"
-              className="h-12 w-full rounded-xl border border-outline-variant bg-white/50 px-3 focus:border-primary focus:ring-primary"
-            />
-          </div>
-          <div className="flex items-end">
-            <button className="h-12 w-full rounded-xl bg-primary font-bold text-on-primary shadow-lg shadow-primary/30 transition-all hover:brightness-110 active:scale-95">
-              חשב זכויות
-            </button>
-          </div>
-        </div>
-      </section>
+      <RightsCalculator />
 
       <section className="relative overflow-hidden rounded-3xl border-r-[12px] border-error bg-error-container/40 p-8">
         <div className="flex flex-col items-start gap-5 md:flex-row md:items-center">
@@ -177,7 +132,7 @@ export default async function RightsPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-8 md:grid-cols-2">
+      <section id="faq" className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-8 transition-colors hover:border-primary/30">
           <h4 className="mb-6 flex items-center gap-3 font-display text-primary">
             <span className="material-symbols-outlined">help</span>

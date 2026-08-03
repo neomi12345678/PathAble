@@ -3,6 +3,8 @@
  * Requires NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY in .env.local
  * Run: npm run seed
  */
+// הערה: מכונת הפיתוח המקומית מריצה פרוקסי שמיירט TLS, ולכן אימות תעודות נכשל.
+// העקיפה חלה על סקריפטים מקומיים בלבד — קוד הפרודקשן לא מבטל אימות TLS.
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 import { createAdminClient } from "../lib/supabase/admin";
