@@ -10,8 +10,8 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 import { runJobSync } from "../lib/jobs/run-sync";
 
 runJobSync()
-  .then(({ synced }) => {
-    console.log(`Synced ${synced} real Drushim jobs. Old seed jobs deactivated.`);
+  .then(({ synced, bySource }) => {
+    console.log(`Synced ${synced} active jobs.`, bySource);
   })
   .catch((err: unknown) => {
     console.error("Job sync failed:", err);

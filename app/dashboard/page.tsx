@@ -116,7 +116,7 @@ export default async function DashboardPage() {
         ))}
       </section>
 
-      <section className="glass-card relative flex flex-col items-center gap-14 overflow-hidden rounded-[40px] border-white/60 p-10 md:flex-row-reverse md:p-14">
+      <section className="glass-card relative flex flex-col items-center gap-8 overflow-hidden rounded-[2rem] border-white/60 p-6 sm:gap-14 sm:rounded-[40px] sm:p-10 md:flex-row-reverse md:p-14">
         <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-primary/5 blur-3xl" />
         <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-secondary/5 blur-3xl" />
         <div className="z-10 flex-1 space-y-8">
@@ -151,7 +151,7 @@ export default async function DashboardPage() {
           </div>
           <Link
             href="/dashboard/learning"
-            className="inline-flex items-center gap-4 rounded-2xl bg-primary px-10 py-5 text-lg font-black text-on-primary shadow-2xl shadow-primary/30 transition-all hover:scale-[1.03] active:scale-95"
+            className="inline-flex w-full items-center justify-center gap-4 rounded-2xl bg-primary px-8 py-4 text-base font-black text-on-primary shadow-2xl shadow-primary/30 transition-all hover:scale-[1.03] active:scale-95 sm:w-auto sm:px-10 sm:py-5 sm:text-lg"
           >
             המשך למידה
             <span className="material-symbols-outlined font-bold">arrow_back</span>
@@ -167,7 +167,7 @@ export default async function DashboardPage() {
       </section>
 
       <section className="grid grid-cols-1 gap-10 md:grid-cols-12">
-        <div className="glass-card space-y-10 rounded-[40px] p-10 md:col-span-8">
+        <div className="glass-card space-y-8 rounded-[2rem] p-6 sm:space-y-10 sm:rounded-[40px] sm:p-10 md:col-span-8">
           <div className="flex items-center justify-between">
             <h3 className="font-display text-3xl font-black text-primary">
               הישגים
@@ -179,7 +179,7 @@ export default async function DashboardPage() {
               לכל ההישגים
             </Link>
           </div>
-          <div className="grid grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-8">
             {displayBadges.map((a) => (
               <div
                 key={a.label}

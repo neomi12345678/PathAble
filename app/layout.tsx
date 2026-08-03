@@ -7,6 +7,12 @@ export const metadata: Metadata = {
   description: "פלטפורמת הכוונה תעסוקתית לאנשים עם מוגבלויות",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

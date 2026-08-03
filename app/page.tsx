@@ -163,7 +163,7 @@ export default async function HomePage() {
                 <Link
                   key={p.id}
                   href={`/dashboard/professions/${p.id}`}
-                  className="card-hover premium-shadow group min-w-[340px] snap-start overflow-hidden rounded-3xl border border-outline bg-white md:min-w-[400px]"
+                  className="card-hover premium-shadow group min-w-[min(340px,85vw)] snap-start overflow-hidden rounded-3xl border border-outline bg-white sm:min-w-[340px] md:min-w-[400px]"
                 >
                   <div className="relative h-64 overflow-hidden">
                     <Image

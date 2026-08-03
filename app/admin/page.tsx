@@ -7,6 +7,7 @@ import { getProfile } from "@/lib/data";
 import { IMAGES } from "@/lib/assets/images";
 import { APP_NAME } from "@/utils/texts";
 import { UserTable } from "@/components/admin/UserTable";
+import { AdminMobileNav } from "@/components/admin/AdminMobileNav";
 
 export const metadata: Metadata = {
   title: `פאנל ניהול | ${APP_NAME}`,
@@ -50,12 +51,13 @@ export default async function AdminPage() {
 
   return (
     <div className="flex min-h-screen bg-background text-on-surface" dir="rtl">
+      <AdminMobileNav appName={APP_NAME} adminName={adminName} />
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-[10%] right-[-10%] h-[40%] w-[40%] animate-pulse rounded-full bg-primary/10 blur-[120px]" />
         <div className="absolute top-[40%] left-[-5%] h-[30%] w-[30%] rounded-full bg-secondary-fixed-dim/10 blur-[100px]" />
       </div>
 
-      <aside className="sticky top-0 z-50 hidden h-screen w-72 flex-col bg-gradient-to-b from-[#001e2f] to-[#003751] p-6 text-white shadow-2xl md:flex">
+      <aside className="sticky top-0 z-50 hidden h-screen w-72 flex-col bg-gradient-to-b from-[#001e2f] to-[#003751] p-6 text-white shadow-2xl lg:flex">
         <div className="mb-12 flex items-center gap-3 px-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary shadow-lg shadow-secondary/20">
             <span className="material-symbols-outlined icon-fill text-white">
@@ -104,10 +106,10 @@ export default async function AdminPage() {
         </div>
       </aside>
 
-      <main className="mx-auto w-full max-w-[1280px] flex-grow p-8 md:p-12">
-        <header className="mb-12 flex flex-col justify-between gap-6 md:flex-row md:items-center">
+      <main className="mx-auto w-full max-w-[1280px] flex-grow p-4 sm:p-8 md:p-12">
+        <header className="mb-8 flex flex-col justify-between gap-6 md:mb-12 md:flex-row md:items-center">
           <div>
-            <h2 className="mb-2 font-display text-3xl font-extrabold text-primary">
+            <h2 className="mb-2 font-display text-2xl font-extrabold text-primary sm:text-3xl">
               מרכז השליטה
             </h2>
             <p className="max-w-xl text-lg text-on-surface-variant">
@@ -141,7 +143,7 @@ export default async function AdminPage() {
                 7 ימים אחרונים
               </span>
             </div>
-            <div className="flex h-64 w-full items-end gap-3 px-2">
+            <div className="flex h-48 w-full items-end gap-1 overflow-x-auto px-1 sm:h-64 sm:gap-3 sm:px-2">
               {stats.weeklySignups.map((bar) => (
                 <div
                   key={bar.day}

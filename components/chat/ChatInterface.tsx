@@ -30,6 +30,7 @@ export function ChatInterface({ stats }: { stats: ChatStats }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statsOpen, setStatsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -92,7 +93,55 @@ export function ChatInterface({ stats }: { stats: ChatStats }) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-12" aria-label={CHAT.title}>
+    <div className="grid grid-cols-1 gap-4 lg:gap-8 lg:grid-cols-12" aria-label={CHAT.title}>
+      {/* Mobile stats strip */}
+      <div className="lg:hidden">
+        <button
+          type="button"
+          onClick={() => setStatsOpen((v) => !v)}
+          aria-expanded={statsOpen}
+          className="glass-v2 flex w-full items-center justify-between rounded-2xl border border-white/60 px-4 py-3 shadow-md"
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="h-10 w-10 rounded-full border-2 border-white bg-cover bg-center"
+              style={{ backgroundImage: `url('${IMAGES.aiAvatar}')` }}
+            />
+            <div className="text-right">
+              <p className="text-sm font-bold text-on-surface">{CHAT.title}</p>
+              <p className="text-xs text-on-surface-variant">
+                פרופיל {stats.completionPercent}% · {stats.matchingJobs} משרות
+              </p>
+            </div>
+          </div>
+          <span className="material-symbols-outlined text-primary">
+            {statsOpen ? "expand_less" : "expand_more"}
+          </span>
+        </button>
+        {statsOpen && (
+          <div className="mt-2 grid grid-cols-3 gap-2 rounded-2xl border border-white/60 bg-white/80 p-3 shadow-md">
+            <div className="text-center">
+              <p className="text-[10px] font-bold text-on-surface-variant">פרופיל</p>
+              <p className="font-display text-lg font-black text-primary">
+                {stats.completionPercent}%
+              </p>
+            </div>
+            <a href="/dashboard/professions" className="text-center">
+              <p className="text-[10px] font-bold text-on-surface-variant">מקצועות</p>
+              <p className="font-display text-lg font-black text-secondary">
+                {stats.matchingProfessions}
+              </p>
+            </a>
+            <a href="/dashboard/jobs" className="text-center">
+              <p className="text-[10px] font-bold text-on-surface-variant">משרות</p>
+              <p className="font-display text-lg font-black text-primary">
+                {stats.matchingJobs}
+              </p>
+            </a>
+          </div>
+        )}
+      </div>
+
       <aside className="hidden lg:col-span-4 lg:flex">
         <div className="glass-v2 flex flex-1 flex-col items-center rounded-3xl border border-white/60 p-8 shadow-2xl">
           <div className="group relative mb-8">
@@ -179,8 +228,8 @@ export function ChatInterface({ stats }: { stats: ChatStats }) {
         </div>
       </aside>
 
-      <section className="glass-v2 relative flex h-[calc(100vh-12rem)] flex-col overflow-hidden rounded-3xl border border-white/60 shadow-2xl lg:col-span-8">
-        <header className="flex items-center justify-between border-b border-white/40 bg-white/30 px-8 py-5">
+      <section className="glass-v2 relative flex h-[calc(100dvh-14rem-4rem)] min-h-[420px] flex-col overflow-hidden rounded-3xl border border-white/60 shadow-2xl lg:col-span-8 lg:h-[calc(100vh-12rem)]">
+        <header className="flex items-center justify-between border-b border-white/40 bg-white/30 px-4 py-4 md:px-8 md:py-5">
           <div className="flex items-center gap-4">
             <div className="relative">
               <div

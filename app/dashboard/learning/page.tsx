@@ -140,17 +140,17 @@ export default async function LearningPage() {
               היועץ החכם שלנו מנתח את ההתקדמות שלכם ומציע את המסלולים הכי
               רלוונטיים עבורכם היום.
             </p>
-            <div className="flex flex-row-reverse justify-center gap-4 md:justify-start">
+            <div className="flex flex-col gap-3 sm:flex-row-reverse sm:justify-center sm:gap-4 md:justify-start">
               <Link
                 href="/dashboard/chat"
-                className="flex items-center gap-3 rounded-full bg-primary-fixed px-10 py-4 text-sm font-bold text-on-primary-fixed shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95"
+                className="flex items-center justify-center gap-3 rounded-full bg-primary-fixed px-8 py-3.5 text-sm font-bold text-on-primary-fixed shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95 sm:px-10 sm:py-4"
               >
                 <span>התחל שיחה עכשיו</span>
                 <span className="material-symbols-outlined">bolt</span>
               </Link>
               <Link
                 href="/dashboard/professions"
-                className="rounded-full border border-white/20 bg-white/5 px-10 py-4 text-sm font-bold text-white transition-all hover:bg-white/10"
+                className="rounded-full border border-white/20 bg-white/5 px-8 py-3.5 text-center text-sm font-bold text-white transition-all hover:bg-white/10 sm:px-10 sm:py-4"
               >
                 למידע נוסף
               </Link>
@@ -159,7 +159,7 @@ export default async function LearningPage() {
           <div className="flex w-full justify-center md:w-1/3">
             <div className="relative">
               <div className="absolute left-1/2 top-1/2 h-48 w-48 -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full bg-primary/20 blur-2xl" />
-              <span className="material-symbols-outlined text-[160px] text-primary-fixed-dim opacity-90 drop-shadow-2xl">
+              <span className="material-symbols-outlined text-[100px] text-primary-fixed-dim opacity-90 drop-shadow-2xl sm:text-[160px]">
                 smart_toy
               </span>
             </div>

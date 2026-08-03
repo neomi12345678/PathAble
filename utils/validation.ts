@@ -21,7 +21,10 @@ export const professionIdSchema = z
 
 export const jobIdSchema = z
   .string()
-  .regex(/^(job-\d{3}|drushim-\d+)$/, "מזהה משרה לא תקין");
+  .regex(
+    /^(job-\d{3}|drushim-\d+|gotfriends-[a-z0-9\u0590-\u05FF-]+|alljobs-\d+|jobmaster-\d+|jobnet-\d+)$/,
+    "מזהה משרה לא תקין"
+  );
 
 export const learningModuleIdSchema = z
   .string()

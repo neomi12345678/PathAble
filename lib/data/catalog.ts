@@ -1,7 +1,8 @@
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { enrichDisabilityFit } from "@/lib/jobs/drushim-sync";
+import { enrichDisabilityFit } from "@/lib/jobs/job-posting";
+import { triggerJobSyncIfStale } from "@/lib/jobs/auto-sync";
 import type { Job, Profession, Question } from "@/types";
 
 function mapJobRow(row: {
@@ -107,6 +108,9 @@ export async function getJobsFromDb(filters?: {
   accessibility?: boolean;
 }): Promise<Job[]> {
   if (!isSupabaseConfigured()) return [];
+
+  void triggerJobSyncIfStale();
+
   const supabase = createClient();
   let query = supabase.from("jobs").select("*").eq("active", true);
   if (filters?.city) query = query.eq("city", filters.city);

@@ -323,7 +323,7 @@ function AssessmentResults({ result }: { result: AssessmentResult }) {
       </section>
 
       <div className="grid grid-cols-12 gap-6">
-        <div className="glass-morphism relative col-span-12 overflow-hidden rounded-3xl p-8 shadow-sm lg:col-span-8">
+        <div className="glass-morphism relative col-span-12 overflow-hidden rounded-3xl p-5 shadow-sm sm:p-8 lg:col-span-8">
           <div className="mb-12 flex flex-row-reverse items-start justify-between">
             <div className="text-right">
               <h2 className="font-display text-2xl font-bold text-on-surface">
@@ -339,14 +339,14 @@ function AssessmentResults({ result }: { result: AssessmentResult }) {
               </span>
             </div>
           </div>
-          <div className="flex h-72 items-end justify-around gap-4 px-2">
+          <div className="scroll-hide -mx-2 flex h-56 items-end justify-start gap-2 overflow-x-auto px-2 sm:mx-0 sm:h-72 sm:justify-around sm:gap-4 sm:px-2">
             {bars.map((label, idx) => {
               const h = strengthBarHeight(idx, bars.length);
               const amber = idx % 2 === 1;
               return (
                 <div
                   key={label}
-                  className="group flex w-full max-w-[70px] flex-col items-center"
+                  className="group flex w-14 shrink-0 flex-col items-center sm:w-full sm:max-w-[70px]"
                 >
                   <div className="relative flex h-[90%] w-full items-end rounded-t-2xl bg-primary/5">
                     <div
@@ -365,7 +365,7 @@ function AssessmentResults({ result }: { result: AssessmentResult }) {
                       #{idx + 1}
                     </span>
                   </div>
-                  <span className="mt-5 text-center text-sm font-bold text-on-surface-variant">
+                  <span className="mt-3 text-center text-[11px] font-bold leading-tight text-on-surface-variant sm:mt-5 sm:text-sm">
                     {label}
                   </span>
                 </div>
@@ -394,8 +394,8 @@ function AssessmentResults({ result }: { result: AssessmentResult }) {
         </div>
 
         <div className="col-span-12 mt-4">
-          <div className="mb-8 flex flex-row-reverse items-center justify-between">
-            <h2 className="font-display text-3xl font-black text-on-surface">
+          <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row-reverse sm:items-center sm:justify-between">
+            <h2 className="font-display text-2xl font-black text-on-surface sm:text-3xl">
               מסלולי קריירה מותאמים
             </h2>
             <Link
@@ -410,7 +410,7 @@ function AssessmentResults({ result }: { result: AssessmentResult }) {
             {result.recommendations.map((rec, idx) => (
               <div
                 key={rec}
-                className="glass-morphism card-hover-effect group relative flex min-h-[280px] flex-col rounded-2xl border border-white/80 p-10 shadow-sm"
+                className="glass-morphism card-hover-effect group relative flex min-h-[240px] flex-col rounded-2xl border border-white/80 p-6 shadow-sm sm:min-h-[280px] sm:p-10"
               >
                 <div className="mb-8 mt-4">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 transition-transform group-hover:scale-110">
@@ -484,7 +484,7 @@ function AssessmentResults({ result }: { result: AssessmentResult }) {
           </p>
           <Link
             href="/dashboard/chat"
-            className="group relative z-10 flex items-center gap-4 rounded-2xl bg-white px-10 py-5 font-display text-lg font-black text-haredi-primary shadow-2xl transition-all hover:scale-105 hover:bg-secondary hover:text-white"
+            className="group relative z-10 flex w-full items-center justify-center gap-3 rounded-2xl bg-white px-6 py-4 font-display text-base font-black text-haredi-primary shadow-2xl transition-all hover:scale-105 hover:bg-secondary hover:text-white sm:w-auto sm:gap-4 sm:px-10 sm:py-5 sm:text-lg"
           >
             <span className="material-symbols-outlined text-3xl transition-transform group-hover:rotate-12">
               auto_awesome

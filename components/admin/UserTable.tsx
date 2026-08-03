@@ -44,7 +44,7 @@ export function UserTable({
 
   return (
     <section className="glass-card mb-12 overflow-hidden rounded-[32px] border-none shadow-2xl">
-      <div className="flex flex-col items-start justify-between gap-4 border-b border-outline-variant/30 bg-white/50 p-8 sm:flex-row sm:items-center">
+      <div className="flex flex-col items-start justify-between gap-4 border-b border-outline-variant/30 bg-white/50 p-4 sm:flex-row sm:items-center sm:p-8">
         <h3 className="font-display text-2xl font-semibold text-primary">
           ניהול משתמשים אחרונים
         </h3>
@@ -63,7 +63,7 @@ export function UserTable({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="hidden overflow-x-auto md:block">
         <table className="w-full text-right">
           <thead>
             <tr className="border-b border-outline-variant/20 text-on-surface-variant">
@@ -148,6 +148,60 @@ export function UserTable({
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="divide-y divide-outline-variant/10 md:hidden">
+        {filtered.map((user) => (
+          <div key={user.id} className="space-y-3 p-5">
+            <div className="flex items-center gap-3">
+              <div
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-container-high font-bold ${
+                  user.accent === "primary" ? "text-primary" : "text-secondary"
+                }`}
+              >
+                {user.initials}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-bold text-on-surface">{user.name}</div>
+                <div className="truncate text-xs text-on-surface-variant">
+                  {user.email}
+                </div>
+              </div>
+              <span
+                className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-bold ${STATUS_STYLES[user.status].cls}`}
+              >
+                {STATUS_STYLES[user.status].label}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm text-on-surface-variant">
+              <span>{user.track}</span>
+              <span>{user.joined}</span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                aria-label={`עריכת ${user.name}`}
+                className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-primary/10 py-2 text-sm font-bold text-primary"
+              >
+                <span className="material-symbols-outlined text-sm">edit</span>
+                עריכה
+              </button>
+              <button
+                type="button"
+                aria-label={`מחיקת ${user.name}`}
+                className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-error/10 py-2 text-sm font-bold text-error"
+              >
+                <span className="material-symbols-outlined text-sm">delete</span>
+                מחיקה
+              </button>
+            </div>
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <p className="px-5 py-12 text-center text-on-surface-variant">
+            לא נמצאו משתמשים התואמים לחיפוש.
+          </p>
+        )}
       </div>
 
       <div className="flex justify-center bg-surface-container-low/50 p-6">

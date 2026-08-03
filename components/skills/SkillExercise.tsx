@@ -137,7 +137,7 @@ export function SkillExercise({
           </p>
           <Link
             href="/dashboard/skills"
-            className="celebrate-btn mt-8 inline-block rounded-full px-12 py-3 font-display text-lg font-bold text-white shadow-xl"
+            className="celebrate-btn mt-8 inline-block rounded-full px-6 py-3 font-display text-lg font-bold text-white shadow-xl sm:px-12"
           >
             {SKILLS.backToSkills}
           </Link>
@@ -276,7 +276,7 @@ export function SkillExercise({
                 type="button"
                 disabled={isSaving}
                 onClick={handleNext}
-                className="celebrate-btn flex-1 rounded-full px-12 py-3 font-display text-lg font-bold text-white shadow-xl md:flex-none"
+                className="celebrate-btn flex-1 rounded-full px-6 py-3 font-display text-lg font-bold text-white shadow-xl sm:px-12 md:flex-none"
               >
                 {isSaving
                   ? SKILLS.saving
@@ -289,7 +289,7 @@ export function SkillExercise({
                 type="button"
                 disabled={selectedOptionId === null}
                 onClick={() => void handleSubmit()}
-                className={`celebrate-btn flex-1 rounded-full px-12 py-3 font-display text-lg font-bold text-white shadow-xl md:flex-none ${
+                className={`celebrate-btn flex-1 rounded-full px-6 py-3 font-display text-lg font-bold text-white shadow-xl sm:px-12 md:flex-none ${
                   selectedOptionId === null ? "cursor-not-allowed opacity-50" : ""
                 }`}
               >

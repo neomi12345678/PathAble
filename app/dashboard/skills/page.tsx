@@ -170,7 +170,7 @@ export default async function SkillsPage() {
       <Link
         href="/dashboard/chat"
         aria-label="יש לך שאלה?"
-        className="group fixed bottom-8 left-8 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-white shadow-2xl transition-transform hover:scale-110 active:scale-95"
+        className="group fixed bottom-20 left-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-2xl transition-transform hover:scale-110 active:scale-95 lg:bottom-8 lg:left-8 lg:h-16 lg:w-16"
       >
         <span className="material-symbols-outlined text-3xl">question_answer</span>
         <span className="pointer-events-none absolute left-full ml-4 whitespace-nowrap rounded-lg bg-white px-4 py-2 font-bold text-primary opacity-0 shadow-xl transition-opacity group-hover:opacity-100">

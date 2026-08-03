@@ -124,7 +124,7 @@ export default async function ProfessionDetailPage({
         {PROFESSIONS.backToList}
       </Link>
 
-      <section className="hero-mesh relative flex min-h-[400px] items-center overflow-hidden rounded-[3rem] border border-white/50 px-8 py-12 shadow-2xl md:px-12">
+      <section className="hero-mesh relative flex min-h-[280px] items-center overflow-hidden rounded-[2rem] border border-white/50 px-5 py-8 shadow-2xl sm:min-h-[400px] sm:rounded-[3rem] sm:px-8 sm:py-12 md:px-12">
         <div className="grid w-full grid-cols-1 items-center gap-12 lg:grid-cols-2">
           <div className="text-right">
             <div className="glass-card mb-6 inline-flex flex-row-reverse items-center gap-2 rounded-full bg-primary-container/20 px-4 py-1 text-on-primary-container">
@@ -141,10 +141,10 @@ export default async function ProfessionDetailPage({
             <p className="mb-8 ml-auto max-w-xl text-lg leading-relaxed text-on-surface-variant">
               {profession.description}
             </p>
-            <div className="flex flex-row-reverse flex-wrap gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row-reverse sm:flex-wrap sm:gap-4">
               <Link
                 href="/dashboard/learning"
-                className="amber-glow rounded-xl bg-secondary px-8 py-4 text-lg font-bold text-on-secondary shadow-lg transition-transform hover:scale-105"
+                className="amber-glow w-full rounded-xl bg-secondary px-6 py-3.5 text-center text-base font-bold text-on-secondary shadow-lg transition-transform hover:scale-105 sm:w-auto sm:px-8 sm:py-4 sm:text-lg"
               >
                 התחל מסלול הכשרה
               </Link>
@@ -154,16 +154,16 @@ export default async function ProfessionDetailPage({
               />
               <Link
                 href="/dashboard/chat"
-                className="glass-card rounded-xl border border-primary px-8 py-4 text-lg font-bold text-primary transition-all hover:bg-primary-fixed"
+                className="glass-card w-full rounded-xl border border-primary px-6 py-3.5 text-center text-base font-bold text-primary transition-all hover:bg-primary-fixed sm:w-auto sm:px-8 sm:py-4 sm:text-lg"
               >
                 שאל את היועץ
               </Link>
             </div>
           </div>
-          <div className="relative hidden lg:block">
-            <div className="glass-card-premium animate-subtle-float relative z-20 rounded-[2.5rem] p-4">
+          <div className="relative lg:block">
+            <div className="glass-card-premium relative z-20 overflow-hidden rounded-[2rem] p-3 sm:rounded-[2.5rem] sm:p-4 lg:animate-subtle-float">
               <div
-                className="h-80 w-full rounded-[2rem] bg-cover bg-center shadow-inner"
+                className="h-48 w-full rounded-[1.5rem] bg-cover bg-center shadow-inner sm:h-64 sm:rounded-[2rem] lg:h-80"
                 style={{ backgroundImage: `url('${IMAGES.professionHero}')` }}
               />
             </div>
@@ -292,7 +292,7 @@ export default async function ProfessionDetailPage({
                   {p.price}
                 </div>
               </div>
-              <div className="mb-8 grid grid-cols-2 gap-6">
+              <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
                 {p.items.map((it) => (
                   <div
                     key={it.label}
@@ -336,7 +336,7 @@ export default async function ProfessionDetailPage({
       <Link
         href="/dashboard/chat"
         aria-label="יועץ AI"
-        className="group fixed bottom-10 left-10 z-40 flex h-16 w-16 items-center justify-center rounded-3xl bg-secondary text-white shadow-2xl transition-all hover:scale-110 active:scale-95"
+        className="group fixed bottom-20 left-4 z-40 flex h-14 w-14 items-center justify-center rounded-3xl bg-secondary text-white shadow-2xl transition-all hover:scale-110 active:scale-95 lg:bottom-10 lg:left-10 lg:h-16 lg:w-16"
       >
         <span className="material-symbols-outlined text-3xl transition-transform group-hover:rotate-12">
           smart_toy

@@ -40,9 +40,9 @@ export function SkillsAccordion({ skills }: { skills: SkillWithProgress[] }) {
               type="button"
               onClick={() => setOpenId(isOpen ? null : skill.id)}
               aria-expanded={isOpen}
-              className="flex w-full items-center justify-between p-6 text-right outline-none md:p-8"
+              className="flex w-full items-center justify-between gap-3 p-4 text-right outline-none sm:gap-6 sm:p-6 md:p-8"
             >
-              <div className="flex items-center gap-6">
+              <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-6">
                 <div className="relative flex h-16 w-16 items-center justify-center">
                   <svg className="h-full w-full" viewBox="0 0 64 64">
                     <circle
@@ -79,8 +79,8 @@ export function SkillsAccordion({ skills }: { skills: SkillWithProgress[] }) {
                     {skill.progress}%
                   </span>
                 </div>
-                <div className="text-right">
-                  <h3 className="font-display text-xl font-bold text-on-surface">
+                <div className="min-w-0 flex-1 text-right">
+                  <h3 className="truncate font-display text-lg font-bold text-on-surface sm:text-xl">
                     {skill.title}
                   </h3>
                   <p className="mt-1 text-sm text-on-surface-variant">
@@ -99,7 +99,7 @@ export function SkillsAccordion({ skills }: { skills: SkillWithProgress[] }) {
 
             <div
               className="overflow-hidden transition-all duration-400 ease-in-out"
-              style={{ maxHeight: isOpen ? "800px" : "0px" }}
+              style={{ maxHeight: isOpen ? "2000px" : "0px" }}
             >
               <div className="px-6 pb-8 md:px-8">
                 <div className="grid grid-cols-1 gap-8 border-t border-outline-variant/20 pt-6 md:grid-cols-2">

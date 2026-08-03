@@ -533,12 +533,20 @@ export function ProfileSettings({ data }: ProfileSettingsProps) {
         </div>
       </section>
 
-      <div className="fixed bottom-20 left-0 right-0 z-40 px-4 md:hidden">
+      <div className="fixed bottom-20 left-0 right-0 z-40 flex gap-2 px-4 md:hidden">
+        <button
+          type="button"
+          onClick={handleCancel}
+          disabled={saving}
+          className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-primary-container py-3.5 text-sm font-bold text-primary disabled:opacity-50"
+        >
+          {PROFILE.cancel}
+        </button>
         <button
           type="button"
           onClick={() => void handleSave()}
           disabled={saving}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-container py-3.5 text-sm font-bold text-white shadow-2xl disabled:opacity-50"
+          className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary-container py-3.5 text-sm font-bold text-white shadow-2xl disabled:opacity-50"
         >
           <span className="material-symbols-outlined">save</span>
           {PROFILE.save}

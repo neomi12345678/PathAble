@@ -112,6 +112,7 @@ export function ProfessionsCatalog({
   const [page, setPage] = useState(1);
 
   const [onlyMyDiagnosis, setOnlyMyDiagnosis] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const { diagnosis, autismLevel, diagnosisLabel, loading: profileLoading } =
     useUserProfile();
 
@@ -226,7 +227,7 @@ export function ProfessionsCatalog({
             }}
             placeholder="מה תרצה להיות כשתהיה גדול?..."
             aria-label="חיפוש מקצוע"
-            className="glass-card h-11 w-full rounded-2xl border-none pl-24 pr-11 text-base font-medium outline-none placeholder:text-outline-variant focus:ring-0"
+            className="glass-card h-11 w-full rounded-2xl border-none pl-4 pr-11 text-base font-medium outline-none placeholder:text-outline-variant focus:ring-0 sm:pl-24"
           />
           {search && (
             <button
@@ -236,20 +237,34 @@ export function ProfessionsCatalog({
                 setPage(1);
               }}
               aria-label="נקה חיפוש"
-              className="absolute left-28 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-outline transition-colors hover:bg-slate-100"
+              className="absolute left-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-outline transition-colors hover:bg-slate-100 sm:left-28"
             >
               <span className="material-symbols-outlined text-lg">close</span>
             </button>
           )}
-          <span className="absolute left-3 top-1/2 flex h-10 -translate-y-1/2 items-center justify-center rounded-2xl bg-primary-container px-6 text-sm font-bold text-white shadow-md">
+          <span className="absolute left-3 top-1/2 hidden h-10 -translate-y-1/2 items-center justify-center rounded-2xl bg-primary-container px-6 text-sm font-bold text-white shadow-md sm:flex">
             חיפוש
           </span>
         </div>
       </header>
 
-      <div className="flex flex-col gap-10 lg:flex-row-reverse">
+      <div className="flex flex-col gap-6 lg:flex-row-reverse lg:gap-10">
         <aside className="w-full shrink-0 lg:w-80">
-          <div className="glass-card sticky top-28 rounded-[2rem] p-8">
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-expanded={filtersOpen}
+            className="glass-card mb-4 flex w-full items-center justify-between rounded-2xl px-5 py-3.5 font-bold text-on-surface lg:hidden"
+          >
+            <span className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary-container">tune</span>
+              מסננים
+            </span>
+            <span className="material-symbols-outlined text-outline">
+              {filtersOpen ? "expand_less" : "expand_more"}
+            </span>
+          </button>
+          <div className={`glass-card rounded-[2rem] p-6 sm:p-8 ${filtersOpen ? "block" : "hidden"} lg:block lg:sticky lg:top-28`}>
             <div className="mb-8 flex items-center justify-between">
               <h3 className="flex items-center gap-2 text-xl font-black">
                 <span className="material-symbols-outlined text-primary-container">

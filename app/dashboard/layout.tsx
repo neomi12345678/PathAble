@@ -18,7 +18,7 @@ export default async function DashboardLayout({
       <Navbar />
       <div className="mx-auto flex w-full max-w-container-max flex-1">
         <Sidebar userName={profile?.first_name ?? "משתמש"} />
-        <main className="w-full flex-1 px-5 py-8 pb-24 md:px-8 lg:pb-8">
+        <main className="w-full flex-1 px-4 py-6 pb-24 sm:px-5 sm:py-8 md:px-8 lg:pb-8">
           {children}
         </main>
       </div>

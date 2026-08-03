@@ -32,6 +32,12 @@ export default async function LoginPage() {
             הרשמה
           </Link>
         </div>
+        <Link
+          href="/auth/register"
+          className="text-xs font-bold text-primary md:hidden"
+        >
+          הרשמה
+        </Link>
       </header>
 
       <main className="relative z-10 flex flex-grow items-center justify-center px-4 py-20">

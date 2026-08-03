@@ -36,7 +36,15 @@ function matchBadgeClass(score: number): string {
   return "bg-slate-100 text-slate-600";
 }
 
-export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
+export function JobsBoard({
+  jobs: initialJobs,
+  lastSyncedAt = null,
+  syncInProgress = false,
+}: {
+  jobs: Job[];
+  lastSyncedAt?: string | null;
+  syncInProgress?: boolean;
+}) {
   const { diagnosis, autismLevel, city, sector, diagnosisLabel, loading: profileLoading } =
     useUserProfile();
   const [search, setSearch] = useState("");
@@ -116,6 +124,13 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
           </div>
           <p className="max-w-2xl text-sm text-on-surface-variant">
             {JOBS.subtitle}{" "}
+            <span className="mt-1 block text-xs text-on-surface-variant/80">
+              {syncInProgress
+                ? "מעדכן משרות ברקע מדרושים ואתרים נוספים…"
+                : lastSyncedAt
+                  ? `עודכן אוטומטית ${timeAgo(lastSyncedAt)} · מתרענן כל 3 שעות`
+                  : "משרות מתעדכנות אוטומטית מאתרי דרושים"}
+            </span>
             {!profileLoading && diagnosis && (
               <>
                 ההתאמה מחושבת לפי:{" "}
@@ -172,7 +187,7 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
               className="h-10 w-full rounded-xl border border-outline-variant/40 bg-white/70 pr-10 pl-3 text-sm font-medium outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="scroll-hide flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:gap-3">
             <select
               value={scope}
               onChange={(e) => setScope(e.target.value)}
@@ -218,7 +233,7 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
               type="button"
               onClick={() => setOnlyLowSocial((v) => !v)}
               aria-pressed={onlyLowSocial}
-              className={`flex h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all ${
+              className={`flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all ${
                 onlyLowSocial
                   ? "bg-tertiary text-on-tertiary shadow-md"
                   : "border border-outline-variant/40 bg-white/70 text-on-surface-variant hover:border-tertiary"
@@ -231,7 +246,7 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
               type="button"
               onClick={() => setOnlyRemote((v) => !v)}
               aria-pressed={onlyRemote}
-              className={`flex h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all ${
+              className={`flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all ${
                 onlyRemote
                   ? "bg-primary text-white shadow-md shadow-primary/20"
                   : "border border-outline-variant/40 bg-white/70 text-on-surface-variant hover:border-primary"
@@ -244,7 +259,7 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
               type="button"
               onClick={() => setOnlyWithSupport((v) => !v)}
               aria-pressed={onlyWithSupport}
-              className={`flex h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all ${
+              className={`flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all ${
                 onlyWithSupport
                   ? "bg-secondary text-on-secondary shadow-md shadow-secondary/20"
                   : "border border-outline-variant/40 bg-white/70 text-on-surface-variant hover:border-secondary"
