@@ -43,7 +43,7 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
   const [onlyRemote, setOnlyRemote] = useState(false);
   const [onlyLowSocial, setOnlyLowSocial] = useState(false);
   const [onlyWithSupport, setOnlyWithSupport] = useState(false);
-  const [onlyMyDiagnosis, setOnlyMyDiagnosis] = useState(true);
+  const [onlyMyDiagnosis, setOnlyMyDiagnosis] = useState(false);
   const [onlyMyArea, setOnlyMyArea] = useState(false);
   const [scope, setScope] = useState("all");
 
@@ -63,7 +63,14 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
       if (onlyRemote && !job.work_from_home) return false;
       if (onlyLowSocial && job.social_interaction_level !== "נמוך") return false;
       if (onlyWithSupport && job.support_features.length === 0) return false;
-      if (onlyMyDiagnosis && diagnosis && !jobMatchesDiagnosis(job, diagnosis)) return false;
+      if (
+        onlyMyDiagnosis &&
+        diagnosis &&
+        !jobMatchesDiagnosis(job, diagnosis) &&
+        getJobMatchScore(job, diagnosis, autismLevel, city) < 60
+      ) {
+        return false;
+      }
       if (onlyMyArea && city?.trim() && !jobMatchesUserCity(job, city)) return false;
       if (scope !== "all" && job.scope !== scope) return false;
       if (q) {
@@ -73,14 +80,14 @@ export function JobsBoard({ jobs: initialJobs }: { jobs: Job[] }) {
       }
       return true;
     });
-  }, [jobs, search, onlyRemote, onlyLowSocial, onlyWithSupport, onlyMyDiagnosis, onlyMyArea, scope, diagnosis, city]);
+  }, [jobs, search, onlyRemote, onlyLowSocial, onlyWithSupport, onlyMyDiagnosis, onlyMyArea, scope, diagnosis, autismLevel, city]);
 
   const clearFilters = (): void => {
     setSearch("");
     setOnlyRemote(false);
     setOnlyLowSocial(false);
     setOnlyWithSupport(false);
-    setOnlyMyDiagnosis(true);
+    setOnlyMyDiagnosis(false);
     setOnlyMyArea(false);
     setScope("all");
   };

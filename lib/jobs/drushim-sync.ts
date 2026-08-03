@@ -134,14 +134,27 @@ function inferDisabilityFit(
     fits.add("לקות פיזית");
   }
 
-  // סביבה שקטה + משימות מובנות — רמז עדין לאוטיזם/חרדה, לא לכל הלקויות
+  // סביבה שקטה + משימות מובנות — מתאים לאוטיזם / חרדה / ADHD
   const structuredDesk =
     socialLevel === "נמוך" &&
     (workFromHome ||
-      /qa|בודק תוכנה|הזנת נתונים|data entry|ניתוח נתונים/.test(text));
+      /qa|בודק|הזנ|data entry|ניתוח נתונים|frontend|פיתוח|הנהלת חשבונות|עיצוב|ux|תוכן/.test(
+        text
+      ));
   if (structuredDesk) {
     fits.add("אוטיזם");
     fits.add("חרדה חברתית");
+    fits.add("ADHD");
+  }
+
+  // משימות ממוקדות / מחשב — רמז נוסף ל-ADHD גם באינטראקציה בינונית
+  if (
+    socialLevel !== "גבוה" &&
+    /qa|הזנ|data|ניתוח|בדיק|פיתוח|frontend|הנהלת חשבונות|ארכיון|קטלוג/.test(
+      text
+    )
+  ) {
+    fits.add("ADHD");
   }
 
   // תקשורת כתובה מהבית — רלוונטי יותר ללקות שמיעה (לא לראייה)
