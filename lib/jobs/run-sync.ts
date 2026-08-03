@@ -1,33 +1,33 @@
 import { syncApifyJobs } from "@/lib/jobs/apify-sync";
 import {
+  computeDedupeKey,
+  dedupeJobRows,
+  findDuplicateSlugsToDeactivate,
+} from "@/lib/jobs/dedup";
+import {
   DRUSHIM_SEARCH_QUERIES,
   extractJobUrlsFromSearchHtml,
   JOBS_PER_QUERY,
   mapDrushimPostingToJob,
-  parseJobPostingJsonLd,
 } from "@/lib/jobs/drushim-sync";
 import { syncGotFriendsJobs } from "@/lib/jobs/gotfriends-sync";
-import { SYNCED_JOB_PREFIXES, type SyncJobRow } from "@/lib/jobs/job-posting";
+import { syncGreenhouseJobs } from "@/lib/jobs/greenhouse-sync";
+import { fetchText, USER_AGENT } from "@/lib/jobs/http-fetch";
+import { type SyncJobRow } from "@/lib/jobs/job-posting";
+import {
+  checkStaleNewJobsAlert,
+  recordSourceFailure,
+  recordSourceSuccess,
+} from "@/lib/jobs/sync-health";
+import { verifyJobPage } from "@/lib/jobs/verify-job-page";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
-
-const USER_AGENT = "PathAble/1.0 (+https://github.com/pathable)";
 
 interface SourceResult {
   source: string;
   prefix: string;
   rows: SyncJobRow[];
-}
-
-async function fetchText(url: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: { "User-Agent": USER_AGENT },
-    signal: AbortSignal.timeout(25_000),
-  });
-  if (!res.ok) {
-    throw new Error(`Fetch failed ${res.status}: ${url}`);
-  }
-  return res.text();
+  ok: boolean;
 }
 
 async function syncDrushimJobs(): Promise<SyncJobRow[]> {
@@ -56,11 +56,13 @@ async function syncDrushimJobs(): Promise<SyncJobRow[]> {
   const rows: SyncJobRow[] = [];
   for (const url of urls) {
     try {
-      const html = await fetchText(url);
-      const posting = parseJobPostingJsonLd(html);
-      if (!posting) continue;
-      const row = mapDrushimPostingToJob(url, posting);
-      if (row) rows.push(row);
+      const verified = await verifyJobPage(url);
+      if (!verified.ok) continue;
+      const row = mapDrushimPostingToJob(verified.finalUrl, verified.posting);
+      if (row) {
+        row.last_verified_at = new Date().toISOString();
+        rows.push(row);
+      }
     } catch (err) {
       logger.warn("Drushim job skipped", {
         url,
@@ -70,6 +72,23 @@ async function syncDrushimJobs(): Promise<SyncJobRow[]> {
   }
 
   return rows;
+}
+
+async function runSource(
+  source: string,
+  prefix: string,
+  fetchRows: () => Promise<SyncJobRow[]>
+): Promise<SourceResult> {
+  try {
+    const rows = await fetchRows();
+    await recordSourceSuccess(source, rows.length);
+    return { source, prefix, rows, ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await recordSourceFailure(source, message);
+    logger.warn("Job source sync failed", { source, error: message });
+    return { source, prefix, rows: [], ok: false };
+  }
 }
 
 async function deactivateStaleForPrefix(
@@ -98,24 +117,66 @@ async function deactivateStaleForPrefix(
   if (error) throw error;
 }
 
-async function upsertJobs(rows: SyncJobRow[]): Promise<void> {
-  if (rows.length === 0) return;
+async function deactivateBySlugs(slugs: string[]): Promise<void> {
+  if (slugs.length === 0) return;
   const supabase = createAdminClient();
-  const { error } = await supabase.from("jobs").upsert(rows, {
-    onConflict: "slug",
-  });
+  const { error } = await supabase
+    .from("jobs")
+    .update({ active: false })
+    .in("slug", slugs);
   if (error) throw error;
 }
 
+async function upsertJobsWithTimestamps(rows: SyncJobRow[]): Promise<number> {
+  if (rows.length === 0) return 0;
+
+  const supabase = createAdminClient();
+  const slugs = rows.map((r) => r.slug);
+
+  const { data: existing } = await supabase
+    .from("jobs")
+    .select("slug, first_seen_at")
+    .in("slug", slugs);
+
+  const firstSeenMap = new Map(
+    (existing ?? []).map((e) => [e.slug, e.first_seen_at as string])
+  );
+
+  const now = new Date().toISOString();
+  let newCount = 0;
+
+  const payload = rows.map((row) => {
+    const priorFirst = firstSeenMap.get(row.slug);
+    if (!priorFirst) newCount += 1;
+    const dedupeKey = row.dedupe_key ?? computeDedupeKey(row);
+    return {
+      ...row,
+      dedupe_key: dedupeKey,
+      first_seen_at: priorFirst ?? row.first_seen_at ?? now,
+      last_seen_at: now,
+      last_verified_at: row.last_verified_at ?? now,
+      active: true,
+    };
+  });
+
+  const { error } = await supabase.from("jobs").upsert(payload, {
+    onConflict: "slug",
+  });
+  if (error) throw error;
+
+  return newCount;
+}
+
 async function persistSource(result: SourceResult): Promise<number> {
-  if (result.rows.length === 0) {
-    logger.warn("Job sync: source returned 0 jobs", { source: result.source });
+  if (!result.ok || result.rows.length === 0) {
+    if (result.ok) {
+      logger.warn("Job sync: source returned 0 jobs", { source: result.source });
+    }
     return 0;
   }
 
   const slugs = result.rows.map((r) => r.slug);
   await deactivateStaleForPrefix(result.prefix, slugs);
-  await upsertJobs(result.rows);
 
   logger.info("Job sync source complete", {
     source: result.source,
@@ -128,6 +189,7 @@ async function persistSource(result: SourceResult): Promise<number> {
 /** סנכרון משרות מכל המקורות — רק משרות פעילות ועדכניות */
 export async function runJobSync(): Promise<{
   synced: number;
+  newJobs: number;
   bySource: Record<string, number>;
 }> {
   const supabase = createAdminClient();
@@ -138,33 +200,65 @@ export async function runJobSync(): Promise<{
     .like("slug", "job-%");
   if (seedErr) throw seedErr;
 
-  const [drushimRows, gotfriendsRows, apifyRows] = await Promise.all([
-    syncDrushimJobs(),
-    syncGotFriendsJobs(),
-    syncApifyJobs(),
+  const [drushim, gotfriends, apifyRows, greenhouseRows] = await Promise.all([
+    runSource("drushim", "drushim-", syncDrushimJobs),
+    runSource("gotfriends", "gotfriends-", syncGotFriendsJobs),
+    runSource("apify", "alljobs-", syncApifyJobs),
+    runSource("greenhouse", "greenhouse-", syncGreenhouseJobs),
   ]);
 
-  const sources: SourceResult[] = [
-    { source: "drushim", prefix: "drushim-", rows: drushimRows },
-    { source: "gotfriends", prefix: "gotfriends-", rows: gotfriendsRows },
-    { source: "alljobs", prefix: "alljobs-", rows: apifyRows.filter((r) => r.slug.startsWith("alljobs-")) },
-    { source: "jobmaster", prefix: "jobmaster-", rows: apifyRows.filter((r) => r.slug.startsWith("jobmaster-")) },
-    { source: "jobnet", prefix: "jobnet-", rows: apifyRows.filter((r) => r.slug.startsWith("jobnet-")) },
+  const apifyBySource: SourceResult[] = [
+    {
+      source: "alljobs",
+      prefix: "alljobs-",
+      rows: apifyRows.rows.filter((r) => r.slug.startsWith("alljobs-")),
+      ok: apifyRows.ok,
+    },
+    {
+      source: "jobmaster",
+      prefix: "jobmaster-",
+      rows: apifyRows.rows.filter((r) => r.slug.startsWith("jobmaster-")),
+      ok: apifyRows.ok,
+    },
+    {
+      source: "jobnet",
+      prefix: "jobnet-",
+      rows: apifyRows.rows.filter((r) => r.slug.startsWith("jobnet-")),
+      ok: apifyRows.ok,
+    },
   ];
 
+  const sources: SourceResult[] = [drushim, gotfriends, ...apifyBySource, greenhouseRows];
+
   const bySource: Record<string, number> = {};
-  let total = 0;
-
   for (const source of sources) {
-    const count = await persistSource(source);
-    bySource[source.source] = count;
-    total += count;
+    bySource[source.source] = await persistSource(source);
   }
 
-  if (total === 0) {
-    throw new Error("No active jobs synced from any source");
+  const allRows: SyncJobRow[] = sources.flatMap((s) => s.rows);
+  const winners = dedupeJobRows(allRows);
+  const duplicateSlugs = findDuplicateSlugsToDeactivate(allRows, winners);
+
+  const newJobs = await upsertJobsWithTimestamps(winners);
+  await deactivateBySlugs(duplicateSlugs);
+
+  const total = winners.length;
+  const anyOk = sources.some((s) => s.ok && s.rows.length > 0);
+
+  if (total === 0 && !anyOk) {
+    throw new Error("No active jobs synced — all sources failed or returned empty");
   }
 
-  logger.info("Job sync complete", { synced: total, bySource, prefixes: SYNCED_JOB_PREFIXES });
-  return { synced: total, bySource };
+  await checkStaleNewJobsAlert();
+
+  logger.info("Job sync complete", { synced: total, newJobs, bySource });
+  return { synced: total, newJobs, bySource };
+}
+
+/** בדיקת חיבור למקור (לשימוש ב-health checks) */
+export async function probeJobSources(): Promise<void> {
+  await fetch("https://www.drushim.co.il/jobs/search/qa/", {
+    headers: { "User-Agent": USER_AGENT },
+    signal: AbortSignal.timeout(10_000),
+  });
 }

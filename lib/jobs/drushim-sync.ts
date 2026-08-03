@@ -39,7 +39,7 @@ export function mapDrushimPostingToJob(
 ): SyncJobRow | null {
   const slug = drushimUrlToSlug(applyUrl);
   if (!slug) return null;
-  return mapJobPostingToRow(slug, applyUrl, posting);
+  return mapJobPostingToRow(slug, applyUrl, posting, "drushim");
 }
 
 export const DRUSHIM_SEARCH_QUERIES = [

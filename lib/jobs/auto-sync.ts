@@ -1,7 +1,12 @@
-import { createAdminClient, tryCreateAdminClient } from "@/lib/supabase/admin";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
+import {
+  acquireSyncLockAtomic,
+  getAdaptiveStaleMs,
+  markSyncFailure,
+  markSyncSuccess,
+} from "@/lib/jobs/sync-health";
 
-const STALE_MS = 3 * 60 * 60 * 1000; // 3 שעות
-const STUCK_SYNC_MS = 20 * 60 * 1000; // 20 דקות
+const STUCK_SYNC_MS = 25 * 60 * 1000;
 
 export interface JobSyncMeta {
   lastSyncedAt: string | null;
@@ -26,11 +31,11 @@ export async function getJobSyncMeta(): Promise<JobSyncMeta | null> {
   };
 }
 
-function isStale(lastSyncedAt: string | null): boolean {
+function isStale(lastSyncedAt: string | null, staleMs: number): boolean {
   if (!lastSyncedAt) return true;
   const ts = new Date(lastSyncedAt).getTime();
   if (Number.isNaN(ts)) return true;
-  return Date.now() - ts > STALE_MS;
+  return Date.now() - ts > staleMs;
 }
 
 function isStuckSync(startedAt: string | null): boolean {
@@ -44,13 +49,14 @@ async function readSyncState(): Promise<{
   lastSyncedAt: string | null;
   syncInProgress: boolean;
   syncStartedAt: string | null;
+  nextRetryAt: string | null;
 } | null> {
   const supabase = tryCreateAdminClient();
   if (!supabase) return null;
 
   const { data, error } = await supabase
     .from("job_sync_meta")
-    .select("last_synced_at, sync_in_progress, sync_started_at")
+    .select("last_synced_at, sync_in_progress, sync_started_at, next_retry_at")
     .eq("id", 1)
     .maybeSingle();
 
@@ -60,6 +66,7 @@ async function readSyncState(): Promise<{
     lastSyncedAt: data.last_synced_at,
     syncInProgress: data.sync_in_progress,
     syncStartedAt: data.sync_started_at,
+    nextRetryAt: data.next_retry_at,
   };
 }
 
@@ -68,60 +75,30 @@ export async function shouldTriggerAutoSync(): Promise<boolean> {
   const state = await readSyncState();
   if (!state) return true;
 
+  if (state.nextRetryAt) {
+    const retry = new Date(state.nextRetryAt).getTime();
+    if (Date.now() < retry) return false;
+  }
+
   if (state.syncInProgress && !isStuckSync(state.syncStartedAt)) {
     return false;
   }
 
-  return isStale(state.lastSyncedAt) || isStuckSync(state.syncStartedAt);
+  const staleMs = await getAdaptiveStaleMs();
+  return isStale(state.lastSyncedAt, staleMs) || isStuckSync(state.syncStartedAt);
 }
 
-/** נעילה לפני סנכron — מחזיר false אם כבר רץ */
+/** נעילה אטומית לפני סנכron */
 export async function ensureSyncLockForCron(): Promise<boolean> {
-  const supabase = createAdminClient();
-  const state = await readSyncState();
-
-  if (state?.syncInProgress && !isStuckSync(state.syncStartedAt)) {
-    return false;
-  }
-
-  const now = new Date().toISOString();
-  const { error } = await supabase
-    .from("job_sync_meta")
-    .update({
-      sync_in_progress: true,
-      sync_started_at: now,
-    })
-    .eq("id", 1);
-
-  return !error;
+  return acquireSyncLockAtomic();
 }
 
-export async function markJobSyncComplete(): Promise<void> {
-  const supabase = tryCreateAdminClient();
-  if (!supabase) return;
-
-  const now = new Date().toISOString();
-  await supabase
-    .from("job_sync_meta")
-    .update({
-      last_synced_at: now,
-      sync_in_progress: false,
-      sync_started_at: null,
-    })
-    .eq("id", 1);
+export async function markJobSyncComplete(newJobs = 0): Promise<void> {
+  await markSyncSuccess(newJobs);
 }
 
 export async function markJobSyncFailed(): Promise<void> {
-  const supabase = tryCreateAdminClient();
-  if (!supabase) return;
-
-  await supabase
-    .from("job_sync_meta")
-    .update({
-      sync_in_progress: false,
-      sync_started_at: null,
-    })
-    .eq("id", 1);
+  await markSyncFailure();
 }
 
 function getSiteUrl(): string {
@@ -134,7 +111,7 @@ function getSiteUrl(): string {
 }
 
 /**
- * מפעיל סנכron ברקע אם הנתונים ישנים מ-3 שעות.
+ * מפעיל סנכron ברקע אם הנתונים ישנים.
  * בפרודקשן — מפעיל Lambda נפרד דרך /api/cron/sync-jobs.
  */
 export async function triggerJobSyncIfStale(): Promise<void> {
@@ -155,7 +132,7 @@ export async function triggerJobSyncIfStale(): Promise<void> {
 
   const { runJobSync } = await import("@/lib/jobs/run-sync");
   void runJobSync()
-    .then(() => markJobSyncComplete())
+    .then(({ newJobs }) => markJobSyncComplete(newJobs))
     .catch(async () => {
       await markJobSyncFailed();
     });

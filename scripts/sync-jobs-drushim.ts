@@ -10,8 +10,8 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 import { runJobSync } from "../lib/jobs/run-sync";
 
 runJobSync()
-  .then(({ synced, bySource }) => {
-    console.log(`Synced ${synced} active jobs.`, bySource);
+  .then(({ synced, newJobs, bySource }) => {
+    console.log(`Synced ${synced} active jobs (${newJobs} new).`, bySource);
   })
   .catch((err: unknown) => {
     console.error("Job sync failed:", err);

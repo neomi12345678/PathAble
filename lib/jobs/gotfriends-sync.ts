@@ -1,9 +1,10 @@
+import { fetchText } from "@/lib/jobs/http-fetch";
 import {
   mapJobPostingToRow,
-  parseJobPostingJsonLd,
   slugifyJobPath,
   type SyncJobRow,
 } from "@/lib/jobs/job-posting";
+import { verifyJobPage } from "@/lib/jobs/verify-job-page";
 
 export const GOTFRIENDS_CATEGORIES = [
   "qa",
@@ -17,17 +18,6 @@ export const GOTFRIENDS_CATEGORIES = [
   "design",
   "executive-position",
 ] as const;
-
-const USER_AGENT = "PathAble/1.0 (+https://github.com/pathable)";
-
-async function fetchText(url: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: { "User-Agent": USER_AGENT },
-    signal: AbortSignal.timeout(25_000),
-  });
-  if (!res.ok) throw new Error(`Fetch failed ${res.status}: ${url}`);
-  return res.text();
-}
 
 export function extractGotFriendsJobUrls(html: string, category: string): string[] {
   const seen = new Set<string>();
@@ -102,14 +92,20 @@ export async function collectGotFriendsJobUrls(): Promise<string[]> {
 }
 
 export async function fetchGotFriendsJob(url: string): Promise<SyncJobRow | null> {
-  const html = await fetchText(url);
-  const posting = parseJobPostingJsonLd(html);
-  if (!posting) return null;
+  const verified = await verifyJobPage(url);
+  if (!verified.ok) return null;
 
-  const slug = gotfriendsUrlToSlug(url);
+  const slug = gotfriendsUrlToSlug(verified.finalUrl);
   if (!slug) return null;
 
-  return mapJobPostingToRow(slug, url, posting);
+  const row = mapJobPostingToRow(
+    slug,
+    verified.finalUrl,
+    verified.posting,
+    "gotfriends"
+  );
+  if (row) row.last_verified_at = new Date().toISOString();
+  return row;
 }
 
 export async function syncGotFriendsJobs(): Promise<SyncJobRow[]> {

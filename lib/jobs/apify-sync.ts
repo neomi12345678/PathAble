@@ -55,16 +55,22 @@ function apifyItemToRow(item: ApifyJobItem): SyncJobRow | null {
 
   if (!slug || !title || !url || !description) return null;
 
-  return mapJobPostingToRow(slug, url, {
-    title,
-    description,
-    datePosted: item.postedDate,
-    employmentType: item.jobType?.includes("חלק") ? "PART_TIME" : "FULL_TIME",
-    hiringOrganization: { name: company },
-    jobLocation: {
-      address: { addressLocality: item.location?.trim() || "ישראל" },
+  const source = item.source?.toLowerCase() ?? "external";
+  return mapJobPostingToRow(
+    slug,
+    url,
+    {
+      title,
+      description,
+      datePosted: item.postedDate,
+      employmentType: item.jobType?.includes("חלק") ? "PART_TIME" : "FULL_TIME",
+      hiringOrganization: { name: company },
+      jobLocation: {
+        address: { addressLocality: item.location?.trim() || "ישראל" },
+      },
     },
-  });
+    source
+  );
 }
 
 async function runApifyKeyword(

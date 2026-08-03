@@ -200,12 +200,18 @@ export interface SyncJobRow {
   profession_id: null;
   active: boolean;
   created_at: string;
+  source: string;
+  dedupe_key?: string;
+  first_seen_at?: string;
+  last_seen_at?: string;
+  last_verified_at?: string;
 }
 
 export function mapJobPostingToRow(
   slug: string,
   applyUrl: string,
-  posting: JobPostingJson
+  posting: JobPostingJson,
+  source = "unknown"
 ): SyncJobRow | null {
   const title = posting.title?.trim();
   const company = posting.hiringOrganization?.name?.trim();
@@ -242,6 +248,8 @@ export function mapJobPostingToRow(
     ? new Date(posting.datePosted).toISOString()
     : new Date().toISOString();
 
+  const now = new Date().toISOString();
+
   return {
     slug,
     title,
@@ -260,6 +268,10 @@ export function mapJobPostingToRow(
     profession_id: null,
     active: true,
     created_at: createdAt,
+    source,
+    first_seen_at: now,
+    last_seen_at: now,
+    last_verified_at: now,
   };
 }
 
@@ -280,4 +292,5 @@ export const SYNCED_JOB_PREFIXES = [
   "alljobs-",
   "jobmaster-",
   "jobnet-",
+  "greenhouse-",
 ] as const;
