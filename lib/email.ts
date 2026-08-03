@@ -11,11 +11,12 @@ function getFromAddress(): string {
 export async function sendWelcomeEmail(
   to: string,
   firstName?: string
-): Promise<boolean> {
+): Promise<{ sent: boolean; error?: string }> {
   const resend = getResendClient();
   if (!resend) {
-    logger.warn("Welcome email skipped: RESEND_API_KEY is not configured");
-    return false;
+    const message = "RESEND_API_KEY is not configured";
+    logger.warn("Welcome email skipped", { message });
+    return { sent: false, error: message };
   }
 
   const greeting = firstName?.trim() ? `שלום ${firstName.trim()},` : "שלום,";
@@ -43,9 +44,9 @@ export async function sendWelcomeEmail(
   });
 
   if (error) {
-    logger.error("Welcome email failed", { error: error.message });
-    return false;
+    logger.error("Welcome email failed", { error: error.message, to });
+    return { sent: false, error: error.message };
   }
 
-  return true;
+  return { sent: true };
 }

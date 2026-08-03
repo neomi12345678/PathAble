@@ -67,7 +67,7 @@ export function RegisterForm() {
       toast.success(
         json.data?.welcomeEmailSent
           ? "נרשמת בהצלחה! שלחנו אליך מייל ברוכים הבאים."
-          : AUTH.registerSuccess
+          : "נרשמת בהצלחה! (מייל ברוכים הבאים לא נשלח — בדקי ספאם או הרשמי עם אימייל חשבון Resend)"
       );
       router.push("/onboarding");
       router.refresh();

@@ -89,13 +89,19 @@ export async function POST(request: Request): Promise<NextResponse> {
       .update(profileUpdate)
       .eq("id", created.user.id);
 
-    const welcomeEmailSent = await sendWelcomeEmail(email, firstName);
-    if (!welcomeEmailSent) {
-      logger.warn("Welcome email not sent", { email });
+    const welcomeResult = await sendWelcomeEmail(email, firstName);
+    if (!welcomeResult.sent) {
+      logger.warn("Welcome email not sent", {
+        email,
+        error: welcomeResult.error,
+      });
     }
 
     const finalResponse = NextResponse.json({
-      data: { success: true, welcomeEmailSent },
+      data: {
+        success: true,
+        welcomeEmailSent: welcomeResult.sent,
+      },
     });
     response.cookies.getAll().forEach((cookie) => {
       finalResponse.cookies.set(cookie.name, cookie.value, cookie);
