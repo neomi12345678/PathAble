@@ -40,7 +40,7 @@ function isAuthorized(request: Request): boolean {
 
 /**
  * מופעל אוטומטית:
- * - Vercel Cron (vercel.json) — כל שעה, עם backoff אדפטיבי
+ * - Vercel Cron (vercel.json) — פעם ביום (Hobby); רענון בכניסה ללוח
  * - רקע בכניסה ללוח משרות (triggerJobSyncIfStale)
  */
 export async function GET(request: Request): Promise<NextResponse> {
