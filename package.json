@@ -12,6 +12,7 @@
     "download-images": "node scripts/download-images.mjs",
     "check:supabase": "tsx --env-file=.env.local scripts/check-supabase.ts",
     "sync:jobs": "tsx --env-file=.env.local scripts/sync-jobs-drushim.ts",
+    "sync:jobs:ci": "tsx scripts/sync-jobs-drushim.ts",
     "migrate": "tsx --env-file=.env.local scripts/apply-migration.ts"
   },
   "dependencies": {

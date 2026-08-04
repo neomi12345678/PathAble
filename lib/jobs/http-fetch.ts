@@ -1,5 +1,9 @@
 const USER_AGENT = "PathAble/1.0 (+https://github.com/pathable)";
 
+export interface FetchPageOptions {
+  headers?: Record<string, string>;
+}
+
 export interface FetchPageResult {
   ok: boolean;
   status: number;
@@ -25,10 +29,29 @@ const SEARCH_REDIRECT_PATTERNS = [
   /\/jobslobby\/[^/]+\/?$/i,
 ];
 
-export async function fetchJobPage(url: string): Promise<FetchPageResult> {
+export const GOTFRIENDS_BROWSER_HEADERS: Record<string, string> = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  Accept:
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+  Referer: "https://www.gotfriends.co.il/",
+  "Cache-Control": "no-cache",
+};
+
+export async function fetchJobPage(
+  url: string,
+  options?: FetchPageOptions
+): Promise<FetchPageResult> {
+  const headers = {
+    "User-Agent": USER_AGENT,
+    Accept: "text/html",
+    ...options?.headers,
+  };
+
   try {
     const res = await fetch(url, {
-      headers: { "User-Agent": USER_AGENT, Accept: "text/html" },
+      headers,
       redirect: "manual",
       signal: AbortSignal.timeout(25_000),
     });
@@ -57,7 +80,7 @@ export async function fetchJobPage(url: string): Promise<FetchPageResult> {
           reason: "redirect_search",
         };
       }
-      return fetchJobPage(target);
+      return fetchJobPage(target, options);
     }
 
     if (!res.ok) {

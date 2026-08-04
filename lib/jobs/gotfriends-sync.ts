@@ -1,4 +1,9 @@
-import { fetchJobPage } from "@/lib/jobs/http-fetch";
+import {
+  fetchJobPage,
+  GOTFRIENDS_BROWSER_HEADERS,
+  type FetchPageOptions,
+} from "@/lib/jobs/http-fetch";
+import { syncGotFriendsViaApify } from "@/lib/jobs/gotfriends-apify-sync";
 import {
   mapJobPostingToRow,
   slugifyJobPath,
@@ -29,6 +34,14 @@ export const GOTFRIENDS_CATEGORIES = [
   "design",
   "executive-position",
 ] as const;
+
+const GOTFRIENDS_FETCH: FetchPageOptions = {
+  headers: GOTFRIENDS_BROWSER_HEADERS,
+};
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export function extractGotFriendsJobUrls(html: string, category: string): string[] {
   const seen = new Set<string>();
@@ -98,7 +111,7 @@ export async function collectGotFriendsJobUrls(): Promise<string[]> {
 
   for (const category of GOTFRIENDS_CATEGORIES) {
     const pageUrl = `https://www.gotfriends.co.il/jobslobby/${category}/`;
-    const page = await fetchJobPage(pageUrl);
+    const page = await fetchJobPage(pageUrl, GOTFRIENDS_FETCH);
 
     if (!page.ok) {
       categoryFailures.push({
@@ -107,6 +120,7 @@ export async function collectGotFriendsJobUrls(): Promise<string[]> {
         reason: page.reason ?? "fetch_error",
         detail: page.errorDetail,
       });
+      await sleep(400);
       continue;
     }
 
@@ -116,6 +130,8 @@ export async function collectGotFriendsJobUrls(): Promise<string[]> {
         urls.push(jobUrl);
       }
     }
+
+    await sleep(600);
   }
 
   if (categoryFailures.length > 0) {
@@ -144,7 +160,7 @@ function bumpReason(
 }
 
 export async function fetchGotFriendsJob(url: string): Promise<SyncJobRow | null> {
-  const verified = await verifyJobPage(url);
+  const verified = await verifyJobPage(url, GOTFRIENDS_FETCH);
   if (!verified.ok) return null;
 
   const slug = gotfriendsUrlToSlug(verified.finalUrl);
@@ -169,13 +185,14 @@ export async function syncGotFriendsJobs(): Promise<SyncJobRow[]> {
 
   for (const url of urls) {
     try {
-      const verified = await verifyJobPage(url);
+      const verified = await verifyJobPage(url, GOTFRIENDS_FETCH);
       if (!verified.ok) {
         const key =
           verified.reason === "fetch_error" && verified.httpStatus
             ? `fetch_error_${verified.httpStatus}`
             : verified.reason;
         bumpReason(verifyFailures, key);
+        await sleep(250);
         continue;
       }
 
@@ -199,6 +216,7 @@ export async function syncGotFriendsJobs(): Promise<SyncJobRow[]> {
 
       row.last_verified_at = new Date().toISOString();
       rows.push(row);
+      await sleep(250);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const key = message.includes("timeout")
@@ -212,11 +230,19 @@ export async function syncGotFriendsJobs(): Promise<SyncJobRow[]> {
   }
 
   if (rows.length === 0) {
-    logger.warn("GotFriends sync returned 0 jobs", {
+    logger.warn("GotFriends direct sync returned 0 jobs", {
       urlsFound: urls.length,
       verifyFailures,
       otherFailures,
     });
+
+    const apifyRows = await syncGotFriendsViaApify();
+    if (apifyRows.length > 0) {
+      logger.warn("GotFriends recovered via Apify fallback", {
+        count: apifyRows.length,
+      });
+      return apifyRows;
+    }
   } else if (Object.keys(verifyFailures).length > 0) {
     logger.warn("GotFriends sync partial failures", {
       synced: rows.length,
