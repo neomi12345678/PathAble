@@ -1,4 +1,4 @@
-import { fetchText } from "@/lib/jobs/http-fetch";
+import { fetchJobPage } from "@/lib/jobs/http-fetch";
 import {
   mapJobPostingToRow,
   slugifyJobPath,
@@ -6,6 +6,7 @@ import {
   type SyncJobRow,
 } from "@/lib/jobs/job-posting";
 import { verifyJobPage } from "@/lib/jobs/verify-job-page";
+import { logger } from "@/lib/logger";
 
 function enrichGotFriendsPosting(html: string, posting: JobPostingJson): JobPostingJson {
   const ogDesc = html.match(/property="og:description"\s+content="([^"]+)"/i)?.[1];
@@ -59,7 +60,6 @@ export function extractGotFriendsJobUrls(html: string, category: string): string
       continue;
     }
 
-    // דפי אגרגציה (qa-positions וכו') — לא משרה בודדת
     if (parts[2].endsWith("-positions") || parts[2] === "positions") {
       continue;
     }
@@ -84,26 +84,63 @@ export function gotfriendsUrlToSlug(url: string): string | null {
   }
 }
 
+interface CategoryFetchFailure {
+  category: string;
+  status: number;
+  reason: string;
+  detail?: string;
+}
+
 export async function collectGotFriendsJobUrls(): Promise<string[]> {
   const seen = new Set<string>();
   const urls: string[] = [];
+  const categoryFailures: CategoryFetchFailure[] = [];
 
   for (const category of GOTFRIENDS_CATEGORIES) {
     const pageUrl = `https://www.gotfriends.co.il/jobslobby/${category}/`;
-    try {
-      const html = await fetchText(pageUrl);
-      for (const jobUrl of extractGotFriendsJobUrls(html, category)) {
-        if (!seen.has(jobUrl)) {
-          seen.add(jobUrl);
-          urls.push(jobUrl);
-        }
+    const page = await fetchJobPage(pageUrl);
+
+    if (!page.ok) {
+      categoryFailures.push({
+        category,
+        status: page.status,
+        reason: page.reason ?? "fetch_error",
+        detail: page.errorDetail,
+      });
+      continue;
+    }
+
+    for (const jobUrl of extractGotFriendsJobUrls(page.html, category)) {
+      if (!seen.has(jobUrl)) {
+        seen.add(jobUrl);
+        urls.push(jobUrl);
       }
-    } catch {
-      // category page unavailable — skip
     }
   }
 
+  if (categoryFailures.length > 0) {
+    logger.warn("GotFriends category pages failed", {
+      failed: categoryFailures.length,
+      total: GOTFRIENDS_CATEGORIES.length,
+      samples: categoryFailures.slice(0, 5),
+    });
+  }
+
+  if (urls.length === 0) {
+    logger.warn("GotFriends: no job URLs collected", {
+      categoryFailures,
+      categoriesTried: GOTFRIENDS_CATEGORIES.length,
+    });
+  }
+
   return urls;
+}
+
+function bumpReason(
+  counts: Record<string, number>,
+  key: string
+): void {
+  counts[key] = (counts[key] ?? 0) + 1;
 }
 
 export async function fetchGotFriendsJob(url: string): Promise<SyncJobRow | null> {
@@ -127,14 +164,66 @@ export async function fetchGotFriendsJob(url: string): Promise<SyncJobRow | null
 export async function syncGotFriendsJobs(): Promise<SyncJobRow[]> {
   const urls = await collectGotFriendsJobUrls();
   const rows: SyncJobRow[] = [];
+  const verifyFailures: Record<string, number> = {};
+  const otherFailures: Record<string, number> = {};
 
   for (const url of urls) {
     try {
-      const row = await fetchGotFriendsJob(url);
-      if (row) rows.push(row);
-    } catch {
-      // skip broken listing
+      const verified = await verifyJobPage(url);
+      if (!verified.ok) {
+        const key =
+          verified.reason === "fetch_error" && verified.httpStatus
+            ? `fetch_error_${verified.httpStatus}`
+            : verified.reason;
+        bumpReason(verifyFailures, key);
+        continue;
+      }
+
+      const slug = gotfriendsUrlToSlug(verified.finalUrl);
+      if (!slug) {
+        bumpReason(otherFailures, "invalid_slug");
+        continue;
+      }
+
+      const posting = enrichGotFriendsPosting(verified.html, verified.posting);
+      const row = mapJobPostingToRow(
+        slug,
+        verified.finalUrl,
+        posting,
+        "gotfriends"
+      );
+      if (!row) {
+        bumpReason(otherFailures, "map_row_rejected");
+        continue;
+      }
+
+      row.last_verified_at = new Date().toISOString();
+      rows.push(row);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const key = message.includes("timeout")
+        ? "exception_timeout"
+        : message.includes("certificate") || message.includes("SSL")
+          ? "exception_ssl"
+          : "exception_other";
+      bumpReason(otherFailures, key);
+      logger.warn("GotFriends job exception", { url, error: message });
     }
+  }
+
+  if (rows.length === 0) {
+    logger.warn("GotFriends sync returned 0 jobs", {
+      urlsFound: urls.length,
+      verifyFailures,
+      otherFailures,
+    });
+  } else if (Object.keys(verifyFailures).length > 0) {
+    logger.warn("GotFriends sync partial failures", {
+      synced: rows.length,
+      urlsFound: urls.length,
+      verifyFailures,
+      otherFailures,
+    });
   }
 
   return rows;

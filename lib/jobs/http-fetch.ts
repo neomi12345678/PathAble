@@ -6,6 +6,7 @@ export interface FetchPageResult {
   finalUrl: string;
   html: string;
   reason?: "gone" | "redirect_search" | "unavailable_text" | "fetch_error";
+  errorDetail?: string;
 }
 
 const UNAVAILABLE_PATTERNS = [
@@ -83,13 +84,22 @@ export async function fetchJobPage(url: string): Promise<FetchPageResult> {
     }
 
     return { ok: true, status: res.status, finalUrl, html };
-  } catch {
+  } catch (err) {
+    const detail =
+      err instanceof Error
+        ? err.name === "TimeoutError" || err.message.includes("timeout")
+          ? "timeout"
+          : err.message.includes("certificate") || err.message.includes("SSL")
+            ? "ssl_error"
+            : err.message
+        : "unknown";
     return {
       ok: false,
       status: 0,
       finalUrl: url,
       html: "",
       reason: "fetch_error",
+      errorDetail: detail,
     };
   }
 }

@@ -188,9 +188,11 @@ async function persistSource(result: SourceResult): Promise<number> {
 
 /** סנכרון משרות מכל המקורות — רק משרות פעילות ועדכניות */
 export async function runJobSync(): Promise<{
+  /** משרות ייחודיות אחרי dedup גלובלי (מה שיישמר ב-DB) */
   synced: number;
   newJobs: number;
-  bySource: Record<string, number>;
+  /** כמה שורות כל מקור שלף — לפני dedup, לא הספירה הסופית בלוח */
+  fetchedBySource: Record<string, number>;
 }> {
   const supabase = createAdminClient();
 
@@ -230,9 +232,9 @@ export async function runJobSync(): Promise<{
 
   const sources: SourceResult[] = [drushim, gotfriends, ...apifyBySource, greenhouseRows];
 
-  const bySource: Record<string, number> = {};
+  const fetchedBySource: Record<string, number> = {};
   for (const source of sources) {
-    bySource[source.source] = await persistSource(source);
+    fetchedBySource[source.source] = await persistSource(source);
   }
 
   const allRows: SyncJobRow[] = sources.flatMap((s) => s.rows);
@@ -251,8 +253,8 @@ export async function runJobSync(): Promise<{
 
   await checkStaleNewJobsAlert();
 
-  logger.info("Job sync complete", { synced: total, newJobs, bySource });
-  return { synced: total, newJobs, bySource };
+  logger.info("Job sync complete", { synced: total, newJobs, fetchedBySource });
+  return { synced: total, newJobs, fetchedBySource };
 }
 
 /** בדיקת חיבור למקור (לשימוש ב-health checks) */

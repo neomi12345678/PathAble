@@ -74,9 +74,16 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const { synced, newJobs, bySource } = await runJobSync();
+    const { synced, newJobs, fetchedBySource } = await runJobSync();
     await markJobSyncComplete(newJobs);
-    return NextResponse.json({ ok: true, synced, newJobs, bySource });
+    return NextResponse.json({
+      ok: true,
+      synced,
+      newJobs,
+      /** @deprecated use fetchedBySource — kept for backward compatibility */
+      bySource: fetchedBySource,
+      fetchedBySource,
+    });
   } catch (error) {
     await markJobSyncFailed();
     logger.error("Cron job sync failed", { error: String(error) });

@@ -24,6 +24,7 @@ export interface FailedJobPage {
   ok: false;
   reason: JobVerifyFailure;
   finalUrl: string;
+  httpStatus?: number;
 }
 
 export type JobPageVerification = VerifiedJobPage | FailedJobPage;
@@ -41,7 +42,7 @@ export async function verifyJobPage(url: string): Promise<JobPageVerification> {
           : page.reason === "unavailable_text"
             ? "unavailable_text"
             : "fetch_error";
-    return { ok: false, reason, finalUrl: page.finalUrl };
+    return { ok: false, reason, finalUrl: page.finalUrl, httpStatus: page.status };
   }
 
   const posting = parseJobPostingJsonLd(page.html, page.finalUrl || url);
