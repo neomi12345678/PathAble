@@ -6,6 +6,8 @@ import { awardBadge, BADGES } from "@/lib/data/achievements";
 import { logger } from "@/lib/logger";
 import { assessmentSubmitSchema, parseBody } from "@/utils/validation";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request): Promise<NextResponse> {
   try {
     const user = await getAuthUser();

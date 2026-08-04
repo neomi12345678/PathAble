@@ -1,6 +1,6 @@
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, tryCreateAdminClient } from "@/lib/supabase/admin";
 import { enrichDisabilityFit } from "@/lib/jobs/job-posting";
 import { triggerJobSyncIfStale } from "@/lib/jobs/auto-sync";
 import type { Job, Profession, Question } from "@/types";
@@ -138,7 +138,8 @@ export async function getJobByIdFromDb(id: string): Promise<Job | null> {
 
 export async function getQuestionsFromDb(): Promise<Question[]> {
   if (!isSupabaseConfigured()) return [];
-  const supabase = createClient();
+  const supabase = tryCreateAdminClient();
+  if (!supabase) return [];
   const { data, error } = await supabase
     .from("questions")
     .select("*")

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getQuestions } from "@/lib/data";
 import { logger } from "@/lib/logger";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(): Promise<NextResponse> {
   try {
     const questions = await getQuestions();
