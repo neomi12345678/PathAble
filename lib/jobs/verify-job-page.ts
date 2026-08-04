@@ -44,7 +44,7 @@ export async function verifyJobPage(url: string): Promise<JobPageVerification> {
     return { ok: false, reason, finalUrl: page.finalUrl };
   }
 
-  const posting = parseJobPostingJsonLd(page.html);
+  const posting = parseJobPostingJsonLd(page.html, page.finalUrl || url);
   if (!posting) {
     return { ok: false, reason: "no_jsonld", finalUrl: page.finalUrl };
   }

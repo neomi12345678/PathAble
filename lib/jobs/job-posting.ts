@@ -28,31 +28,94 @@ export interface JobPostingJson {
   datePosted?: string;
   validThrough?: string;
   employmentType?: string;
-  baseSalary?: number;
+  baseSalary?: number | string;
+  url?: string;
   hiringOrganization?: { name?: string };
   jobLocation?: {
     address?:
-      | { addressLocality?: string | null }
-      | Array<{ addressLocality?: string | null }>;
+      | { addressLocality?: string | null; addressCountry?: string | null }
+      | Array<{ addressLocality?: string | null; addressCountry?: string | null }>;
   };
 }
 
-export function parseJobPostingJsonLd(html: string): JobPostingJson | null {
+function normalizeJobPageUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.endsWith("/")
+      ? parsed.pathname
+      : `${parsed.pathname}/`;
+    return `${parsed.origin}${path}`;
+  } catch {
+    return url.endsWith("/") ? url : `${url}/`;
+  }
+}
+
+function extractJobPostingsFromJson(json: unknown): JobPostingJson[] {
+  if (!json || typeof json !== "object") return [];
+
+  const record = json as Record<string, unknown>;
+  if (record["@type"] === "JobPosting") {
+    return [record as JobPostingJson];
+  }
+
+  if (Array.isArray(record["@graph"])) {
+    return record["@graph"].flatMap((item) => extractJobPostingsFromJson(item));
+  }
+
+  return [];
+}
+
+function parseJsonLdScriptContent(raw: string): JobPostingJson[] {
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+
+  try {
+    return extractJobPostingsFromJson(JSON.parse(trimmed) as unknown);
+  } catch {
+    // GotFriends ואחרים: מספר אובייקטי JSON מופרדים בפסיקים באותו script
+    try {
+      const asArray = JSON.parse(`[${trimmed.replace(/,\s*$/, "")}]`) as unknown;
+      if (Array.isArray(asArray)) {
+        return asArray.flatMap((item) => extractJobPostingsFromJson(item));
+      }
+    } catch {
+      // ignore malformed blocks
+    }
+  }
+
+  return [];
+}
+
+export function parseAllJobPostingsJsonLd(html: string): JobPostingJson[] {
+  const postings: JobPostingJson[] = [];
+
   for (const block of Array.from(
     html.matchAll(
       /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi
     )
   )) {
-    try {
-      const json = JSON.parse(block[1]) as { "@type"?: string };
-      if (json["@type"] === "JobPosting") {
-        return json as JobPostingJson;
-      }
-    } catch {
-      // ignore invalid JSON-LD blocks
-    }
+    postings.push(...parseJsonLdScriptContent(block[1]));
   }
-  return null;
+
+  return postings;
+}
+
+export function parseJobPostingJsonLd(
+  html: string,
+  matchUrl?: string
+): JobPostingJson | null {
+  const postings = parseAllJobPostingsJsonLd(html);
+  if (postings.length === 0) return null;
+
+  if (matchUrl) {
+    const target = normalizeJobPageUrl(matchUrl);
+    const matched = postings.find(
+      (p) => p.url && normalizeJobPageUrl(p.url) === target
+    );
+    if (matched) return matched;
+  }
+
+  return postings[0] ?? null;
 }
 
 /** האם המשרה עדיין פתוחה לפי JSON-LD */
@@ -238,7 +301,7 @@ export function mapJobPostingToRow(
     description.length > 160 ? `${description.slice(0, 157)}...` : description;
 
   const salary =
-    posting.baseSalary && posting.baseSalary > 0
+    typeof posting.baseSalary === "number" && posting.baseSalary > 0
       ? `${posting.baseSalary.toLocaleString("he-IL")} ₪`
       : "לא צוין";
 

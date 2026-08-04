@@ -2,9 +2,19 @@ import { fetchText } from "@/lib/jobs/http-fetch";
 import {
   mapJobPostingToRow,
   slugifyJobPath,
+  type JobPostingJson,
   type SyncJobRow,
 } from "@/lib/jobs/job-posting";
 import { verifyJobPage } from "@/lib/jobs/verify-job-page";
+
+function enrichGotFriendsPosting(html: string, posting: JobPostingJson): JobPostingJson {
+  const ogDesc = html.match(/property="og:description"\s+content="([^"]+)"/i)?.[1];
+  const description = posting.description?.trim();
+  if (!description && ogDesc) {
+    posting.description = ogDesc.replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+  }
+  return posting;
+}
 
 export const GOTFRIENDS_CATEGORIES = [
   "qa",
@@ -46,6 +56,11 @@ export function extractGotFriendsJobUrls(html: string, category: string): string
 
     const parts = pathname.split("/").filter(Boolean);
     if (parts.length !== 3 || parts[0] !== "jobslobby" || parts[1] !== category) {
+      continue;
+    }
+
+    // דפי אגרגציה (qa-positions וכו') — לא משרה בודדת
+    if (parts[2].endsWith("-positions") || parts[2] === "positions") {
       continue;
     }
 
@@ -98,10 +113,11 @@ export async function fetchGotFriendsJob(url: string): Promise<SyncJobRow | null
   const slug = gotfriendsUrlToSlug(verified.finalUrl);
   if (!slug) return null;
 
+  const posting = enrichGotFriendsPosting(verified.html, verified.posting);
   const row = mapJobPostingToRow(
     slug,
     verified.finalUrl,
-    verified.posting,
+    posting,
     "gotfriends"
   );
   if (row) row.last_verified_at = new Date().toISOString();

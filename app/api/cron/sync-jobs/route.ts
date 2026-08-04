@@ -11,14 +11,31 @@ import { logger } from "@/lib/logger";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-function isAuthorized(request: Request): boolean {
-  const secret = process.env.CRON_SECRET?.trim();
-  if (!secret) return false;
+function getCronSecret(): string | null {
+  return process.env.CRON_SECRET?.trim() ?? null;
+}
 
+function getBearerToken(request: Request): string | null {
   const auth = request.headers.get("authorization");
-  if (auth === `Bearer ${secret}`) return true;
+  if (!auth) return null;
 
-  return request.headers.get("x-vercel-cron") === "1" && Boolean(secret);
+  const match = auth.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() ?? null;
+}
+
+function isVercelCronRequest(request: Request): boolean {
+  const userAgent = request.headers.get("user-agent") ?? "";
+  return (
+    userAgent.includes("vercel-cron") ||
+    request.headers.get("x-vercel-cron-schedule") !== null ||
+    request.headers.get("x-vercel-cron") === "1"
+  );
+}
+
+function isAuthorized(request: Request): boolean {
+  const secret = getCronSecret();
+  if (!secret) return false;
+  return getBearerToken(request) === secret;
 }
 
 /**
@@ -27,7 +44,7 @@ function isAuthorized(request: Request): boolean {
  * - רקע בכניסה ללוח משרות (triggerJobSyncIfStale)
  */
 export async function GET(request: Request): Promise<NextResponse> {
-  if (!process.env.CRON_SECRET?.trim()) {
+  if (!getCronSecret()) {
     return NextResponse.json(
       { error: "CRON_SECRET not configured" },
       { status: 503 }
@@ -38,7 +55,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const isVercelCron = request.headers.get("x-vercel-cron") === "1";
+  const isVercelCron = isVercelCronRequest(request);
   if (isVercelCron && (await shouldSkipScheduledSync())) {
     return NextResponse.json({
       ok: true,
