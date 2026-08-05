@@ -111,7 +111,8 @@ export async function getJobsFromDb(filters?: {
 
   void triggerJobSyncIfStale();
 
-  const supabase = createClient();
+  // קריאה ציבורית — בלי cookies (לא תלוי session)
+  const supabase = tryCreateAdminClient() ?? createClient();
   let query = supabase.from("jobs").select("*").eq("active", true);
   if (filters?.city) query = query.eq("city", filters.city);
   if (filters?.work_from_home !== undefined)

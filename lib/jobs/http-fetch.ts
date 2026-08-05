@@ -41,13 +41,25 @@ export const GOTFRIENDS_BROWSER_HEADERS: Record<string, string> = {
 
 export async function fetchJobPage(
   url: string,
-  options?: FetchPageOptions
+  options?: FetchPageOptions,
+  redirectDepth = 0
 ): Promise<FetchPageResult> {
   const headers = {
     "User-Agent": USER_AGENT,
     Accept: "text/html",
     ...options?.headers,
   };
+
+  if (redirectDepth > 5) {
+    return {
+      ok: false,
+      status: 0,
+      finalUrl: url,
+      html: "",
+      reason: "fetch_error",
+      errorDetail: "too_many_redirects",
+    };
+  }
 
   try {
     const res = await fetch(url, {
@@ -68,6 +80,16 @@ export async function fetchJobPage(
 
     if (res.status >= 300 && res.status < 400) {
       const location = res.headers.get("location") ?? "";
+      if (!location) {
+        return {
+          ok: false,
+          status: res.status,
+          finalUrl: url,
+          html: "",
+          reason: "fetch_error",
+          errorDetail: "redirect_without_location",
+        };
+      }
       const target = location.startsWith("http")
         ? location
         : new URL(location, url).href;
@@ -80,7 +102,7 @@ export async function fetchJobPage(
           reason: "redirect_search",
         };
       }
-      return fetchJobPage(target, options);
+      return fetchJobPage(target, options, redirectDepth + 1);
     }
 
     if (!res.ok) {

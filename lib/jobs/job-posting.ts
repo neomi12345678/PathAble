@@ -206,16 +206,13 @@ function inferDisabilityFit(
       /qa|בודק|הזנ|data entry|ניתוח נתונים|frontend|פיתוח|הנהלת חשבונות|עיצוב|ux|תוכן/.test(
         text
       ));
-  if (structuredDesk) {
+  // תיוג רך רק כשיש איתות נגישות/התאמה בטקסט — לא על סוג משרה בלבד
+  if (
+    structuredDesk &&
+    /אוטיזם|autism|asd|adhd|קשב|חרדה|נגיש|שילוב|לקות/.test(text)
+  ) {
     fits.add("אוטיזם");
     fits.add("חרדה חברתית");
-    fits.add("ADHD");
-  }
-
-  if (
-    socialLevel !== "גבוה" &&
-    /qa|הזנ|data|ניתוח|בדיק|פיתוח|frontend|הנהלת חשבונות|ארכיון|קטלוג/.test(text)
-  ) {
     fits.add("ADHD");
   }
 
@@ -279,12 +276,14 @@ export function mapJobPostingToRow(
   const title = posting.title?.trim();
   const company = posting.hiringOrganization?.name?.trim();
   const rawDescription = stripHtml(posting.description ?? "");
-  const description =
-    rawDescription.length >= 20
-      ? rawDescription
-      : `${title}. משרה ב${company}. ${rawDescription}`.trim();
+  const hasRealDescription = rawDescription.length >= 40;
+  const description = hasRealDescription
+    ? rawDescription
+    : `${title}. משרה ב${company}. ${rawDescription}`.trim();
 
-  if (!slug || !title || !company || description.length < 10) return null;
+  if (!slug || !title || !company || description.length < 25) return null;
+  // דחיית משרות בלי תיאור ממשי (רק כותרת מרופדת)
+  if (!hasRealDescription && rawDescription.length < 20) return null;
   if (!isJobPostingActive(posting)) return null;
 
   const city = inferCity(posting);

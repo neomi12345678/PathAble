@@ -51,6 +51,7 @@ async function syncDrushimJobs(): Promise<SyncJobRow[]> {
         error: err instanceof Error ? err.message : String(err),
       });
     }
+    await new Promise((r) => setTimeout(r, 200));
   }
 
   const rows: SyncJobRow[] = [];
@@ -69,6 +70,7 @@ async function syncDrushimJobs(): Promise<SyncJobRow[]> {
         error: err instanceof Error ? err.message : String(err),
       });
     }
+    await new Promise((r) => setTimeout(r, 150));
   }
 
   return rows;
@@ -101,6 +103,7 @@ async function deactivateStaleForPrefix(
   const { data: existing, error: selectErr } = await supabase
     .from("jobs")
     .select("slug")
+    .eq("active", true)
     .like("slug", `${prefix}%`);
   if (selectErr) throw selectErr;
 
@@ -120,11 +123,15 @@ async function deactivateStaleForPrefix(
 async function deactivateBySlugs(slugs: string[]): Promise<void> {
   if (slugs.length === 0) return;
   const supabase = createAdminClient();
-  const { error } = await supabase
-    .from("jobs")
-    .update({ active: false })
-    .in("slug", slugs);
-  if (error) throw error;
+  const chunkSize = 100;
+  for (let i = 0; i < slugs.length; i += chunkSize) {
+    const chunk = slugs.slice(i, i + chunkSize);
+    const { error } = await supabase
+      .from("jobs")
+      .update({ active: false })
+      .in("slug", chunk);
+    if (error) throw error;
+  }
 }
 
 async function deactivateDbDuplicatesByKey(winners: SyncJobRow[]): Promise<number> {

@@ -56,6 +56,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   const isVercelCron = isVercelCronRequest(request);
+  // דילוג אדפטיבי רק ל-cron מתוזמן — טריגר ידני/Bearer תמיד רץ (אחרי lock)
   if (isVercelCron && (await shouldSkipScheduledSync())) {
     return NextResponse.json({
       ok: true,
@@ -73,20 +74,30 @@ export async function GET(request: Request): Promise<NextResponse> {
     });
   }
 
+  const started = Date.now();
   try {
     const { synced, newJobs, fetchedBySource } = await runJobSync();
     await markJobSyncComplete(newJobs);
+    logger.sync("Cron job sync OK", {
+      synced,
+      newJobs,
+      fetchedBySource,
+      durationMs: Date.now() - started,
+    });
     return NextResponse.json({
       ok: true,
       synced,
       newJobs,
-      /** @deprecated use fetchedBySource — kept for backward compatibility */
       bySource: fetchedBySource,
       fetchedBySource,
+      durationMs: Date.now() - started,
     });
   } catch (error) {
     await markJobSyncFailed();
-    logger.error("Cron job sync failed", { error: String(error) });
+    logger.error("Cron job sync failed", {
+      error: String(error),
+      durationMs: Date.now() - started,
+    });
     return NextResponse.json({ error: "Job sync failed" }, { status: 500 });
   }
 }

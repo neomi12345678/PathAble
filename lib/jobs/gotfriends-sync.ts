@@ -179,6 +179,12 @@ export async function fetchGotFriendsJob(url: string): Promise<SyncJobRow | null
 }
 
 export async function syncGotFriendsJobs(): Promise<SyncJobRow[]> {
+  // Vercel נחסם ב-403 — GotFriends מתעדכן מ-GitHub Actions בלבד
+  if (process.env.VERCEL === "1") {
+    logger.warn("GotFriends direct sync skipped on Vercel (use GitHub Actions)");
+    return [];
+  }
+
   const urls = await collectGotFriendsJobUrls();
   const rows: SyncJobRow[] = [];
   const verifyFailures: Record<string, number> = {};

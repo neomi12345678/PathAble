@@ -2,9 +2,13 @@ name: Sync jobs
 
 on:
   schedule:
-    # 05:00 UTC — לפני cron Vercel; IP של GitHub עוקף חסימת GotFriends
+    # 05:00 UTC — לפני cron Vercel; IP של GitHub עוקף חסימת GotFriends + Apify
     - cron: "0 5 * * *"
   workflow_dispatch:
+
+concurrency:
+  group: pathable-job-sync
+  cancel-in-progress: false
 
 jobs:
   sync:

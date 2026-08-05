@@ -124,6 +124,9 @@ export async function triggerJobSyncIfStale(): Promise<void> {
     void fetch(`${siteUrl}/api/cron/sync-jobs`, {
       method: "GET",
       headers: { Authorization: `Bearer ${secret}` },
+      signal: AbortSignal.timeout(15_000),
+    }).catch(() => {
+      // fire-and-forget — הכשלון לא חוסם את הלוח
     });
     return;
   }
