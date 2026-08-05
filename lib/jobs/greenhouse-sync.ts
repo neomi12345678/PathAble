@@ -23,13 +23,20 @@ interface GreenhouseBoard {
   company: string;
 }
 
-/** לוחות Greenhouse שעובדים (tokens שחזרו 404 הוסרו) */
+/** לוחות Greenhouse שעובדים (404 tokens הוסרו) */
 const GREENHOUSE_BOARDS: GreenhouseBoard[] = [
   { token: "gongio", company: "Gong" },
   { token: "riskified", company: "Riskified" },
   { token: "similarweb", company: "Similarweb" },
   { token: "lightricks", company: "Lightricks" },
   { token: "taboola", company: "Taboola" },
+  { token: "appsflyer", company: "AppsFlyer" },
+  { token: "melio", company: "Melio" },
+  { token: "payoneer", company: "Payoneer" },
+  { token: "jfrog", company: "JFrog" },
+  { token: "catonetworks", company: "Cato Networks" },
+  { token: "cybereason", company: "Cybereason" },
+  { token: "nice", company: "NICE" },
 ];
 
 function isIsraelRelevant(location: string, content: string): boolean {

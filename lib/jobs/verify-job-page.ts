@@ -1,4 +1,9 @@
-import { fetchJobPage, type FetchPageOptions } from "@/lib/jobs/http-fetch";
+import {
+  fetchJobPage,
+  fetchJobPageWithRetry,
+  type FetchPageOptions,
+  type FetchPageRetryOptions,
+} from "@/lib/jobs/http-fetch";
 import {
   isJobPostingActive,
   parseJobPostingJsonLd,
@@ -32,9 +37,12 @@ export type JobPageVerification = VerifiedJobPage | FailedJobPage;
 /** בודק שהמשרה עדיין קיימת באתר המקור */
 export async function verifyJobPage(
   url: string,
-  fetchOptions?: FetchPageOptions
+  fetchOptions?: FetchPageOptions,
+  retryOptions?: FetchPageRetryOptions
 ): Promise<JobPageVerification> {
-  const page = await fetchJobPage(url, fetchOptions);
+  const page = retryOptions
+    ? await fetchJobPageWithRetry(url, fetchOptions, retryOptions)
+    : await fetchJobPage(url, fetchOptions);
 
   if (!page.ok) {
     const reason =

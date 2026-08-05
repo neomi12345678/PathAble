@@ -49,12 +49,18 @@ const SEARCH_REDIRECT_PATTERNS = [
 
 export const GOTFRIENDS_BROWSER_HEADERS: Record<string, string> = {
   "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
   Accept:
-    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
   "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+  "Accept-Encoding": "gzip, deflate, br",
   Referer: "https://www.gotfriends.co.il/",
   "Cache-Control": "no-cache",
+  "Sec-Fetch-Dest": "document",
+  "Sec-Fetch-Mode": "navigate",
+  "Sec-Fetch-Site": "same-origin",
+  "Sec-Fetch-User": "?1",
+  "Upgrade-Insecure-Requests": "1",
 };
 
 function isPrivateOrLocalHost(hostname: string): boolean {
@@ -103,6 +109,62 @@ async function readResponseTextLimited(res: Response): Promise<string> {
     throw new Error("response_too_large");
   }
   return new TextDecoder("utf-8", { fatal: false }).decode(buf);
+}
+
+export interface FetchPageRetryOptions {
+  maxRetries?: number;
+  retryStatuses?: number[];
+  minDelayMs?: number;
+  maxDelayMs?: number;
+}
+
+const DEFAULT_RETRY_STATUSES = [403, 429, 503];
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function retryDelayMs(minMs: number, maxMs: number, attempt: number): number {
+  const base = minMs + Math.floor(Math.random() * (maxMs - minMs + 1));
+  return base + attempt * 5_000;
+}
+
+export async function fetchJobPageWithRetry(
+  url: string,
+  options?: FetchPageOptions,
+  retryOptions?: FetchPageRetryOptions
+): Promise<FetchPageResult> {
+  const maxRetries = retryOptions?.maxRetries ?? 2;
+  const retryStatuses = retryOptions?.retryStatuses ?? DEFAULT_RETRY_STATUSES;
+  const minDelayMs = retryOptions?.minDelayMs ?? 30_000;
+  const maxDelayMs = retryOptions?.maxDelayMs ?? 60_000;
+
+  let lastResult: FetchPageResult | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    const result = await fetchJobPage(url, options);
+    lastResult = result;
+
+    if (result.ok) return result;
+
+    const shouldRetry =
+      attempt < maxRetries &&
+      (retryStatuses.includes(result.status) ||
+        result.errorDetail === "timeout");
+
+    if (!shouldRetry) return result;
+
+    await sleep(retryDelayMs(minDelayMs, maxDelayMs, attempt));
+  }
+
+  return lastResult ?? {
+    ok: false,
+    status: 0,
+    finalUrl: url,
+    html: "",
+    reason: "fetch_error",
+    errorDetail: "retry_exhausted",
+  };
 }
 
 export async function fetchJobPage(

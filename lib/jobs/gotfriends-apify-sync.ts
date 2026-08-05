@@ -23,6 +23,10 @@ export async function syncGotFriendsViaApify(): Promise<SyncJobRow[]> {
     logger.warn("GotFriends Apify fallback skipped on Vercel");
     return [];
   }
+  if (process.env.SKIP_APIFY === "1") {
+    logger.warn("GotFriends Apify fallback skipped (SKIP_APIFY=1)");
+    return [];
+  }
 
   const token = process.env.APIFY_TOKEN?.trim();
   if (!token) return [];
