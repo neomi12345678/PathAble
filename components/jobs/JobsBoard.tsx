@@ -1,11 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Job } from "@/types";
-import { getJobMatchScore, jobMatchesDiagnosis, jobMatchesUserCity, sortJobsByDiagnosis, DIAGNOSIS_FILTER_MIN_SCORE } from "@/lib/disability-matching";
+import {
+  getJobMatchScore,
+  jobMatchesDiagnosis,
+  jobMatchesUserCity,
+  sortJobsByDiagnosis,
+  DIAGNOSIS_FILTER_MIN_SCORE,
+} from "@/lib/disability-matching";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { JOBS } from "@/utils/texts";
+
+const PAGE_SIZE = 50;
 
 const SCOPE_ICONS: Record<string, string> = {
   "משרה מלאה": "schedule",
@@ -36,6 +44,22 @@ function matchBadgeClass(score: number): string {
   return "bg-slate-100 text-slate-600";
 }
 
+function buildPageItems(current: number, total: number): Array<number | "ellipsis"> {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+
+  const items: Array<number | "ellipsis"> = [1];
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+
+  if (start > 2) items.push("ellipsis");
+  for (let p = start; p <= end; p += 1) items.push(p);
+  if (end < total - 1) items.push("ellipsis");
+  items.push(total);
+  return items;
+}
+
 export function JobsBoard({
   jobs: initialJobs,
   lastSyncedAt = null,
@@ -54,6 +78,7 @@ export function JobsBoard({
   const [onlyMyDiagnosis, setOnlyMyDiagnosis] = useState(false);
   const [onlyMyArea, setOnlyMyArea] = useState(false);
   const [scope, setScope] = useState("all");
+  const [page, setPage] = useState(1);
 
   const jobs = useMemo(
     () => sortJobsByDiagnosis(initialJobs, diagnosis, autismLevel, city, sector),
@@ -97,7 +122,57 @@ export function JobsBoard({
       }
       return true;
     });
-  }, [jobs, search, onlyRemote, onlyLowSocial, onlyWithSupport, onlyMyDiagnosis, onlyMyArea, scope, diagnosis, autismLevel, city, sector]);
+  }, [
+    jobs,
+    search,
+    onlyRemote,
+    onlyLowSocial,
+    onlyWithSupport,
+    onlyMyDiagnosis,
+    onlyMyArea,
+    scope,
+    diagnosis,
+    autismLevel,
+    city,
+    sector,
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+
+  useEffect(() => {
+    setPage(1);
+  }, [
+    search,
+    onlyRemote,
+    onlyLowSocial,
+    onlyWithSupport,
+    onlyMyDiagnosis,
+    onlyMyArea,
+    scope,
+  ]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const pageItems = useMemo(
+    () => buildPageItems(page, totalPages),
+    [page, totalPages]
+  );
+
+  const paged = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page]);
+
+  const rangeStart = filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(page * PAGE_SIZE, filtered.length);
+
+  const goToPage = (next: number): void => {
+    const clamped = Math.min(Math.max(1, next), totalPages);
+    setPage(clamped);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const clearFilters = (): void => {
     setSearch("");
@@ -107,6 +182,7 @@ export function JobsBoard({
     setOnlyMyDiagnosis(false);
     setOnlyMyArea(false);
     setScope("all");
+    setPage(1);
   };
 
   return (
@@ -272,96 +348,178 @@ export function JobsBoard({
         </div>
       </header>
 
-      <p className="px-1 font-bold text-outline">
-        <span className="text-on-surface">{filtered.length}</span> {JOBS.results}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+        <p className="font-bold text-outline">
+          <span className="text-on-surface">{filtered.length}</span> {JOBS.results}
+          {filtered.length > PAGE_SIZE && (
+            <span className="mr-2 text-xs font-medium text-on-surface-variant">
+              · מציג {rangeStart}–{rangeEnd}
+            </span>
+          )}
+        </p>
+        {totalPages > 1 && (
+          <p className="text-xs font-bold text-on-surface-variant">
+            עמוד {page} מתוך {totalPages}
+          </p>
+        )}
+      </div>
 
       {filtered.length > 0 ? (
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((job) => {
-            const matchScore = getJobMatchScore(
-              job,
-              diagnosis,
-              autismLevel,
-              city,
-              sector
-            );
-            const fitTags = job.disability_fit.slice(0, 3);
-            return (
-              <article
-                key={job.id}
-                className="group flex flex-col rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/10"
-              >
-                <div className="mb-3 flex items-start justify-between gap-2">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-primary-container/10 font-display text-sm font-black text-primary">
-                    {companyInitials(job.company)}
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-black ${matchBadgeClass(matchScore)}`}
-                    >
-                      {matchScore}% {JOBS.matchLabel}
-                    </span>
-                    <span className="rounded-full bg-slate-50 px-3 py-1 text-[11px] font-bold text-outline">
-                      {timeAgo(job.created_at)}
-                    </span>
-                  </div>
-                </div>
-
-                <h3 className="mb-1 font-display text-base font-bold leading-tight text-on-surface transition-colors group-hover:text-primary">
-                  <Link href={`/dashboard/jobs/${job.id}`}>{job.title}</Link>
-                </h3>
-                <p className="mb-3 text-sm text-on-surface-variant">
-                  {job.company} · {job.city}
-                </p>
-
-                <div className="mb-4 flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/5 px-2.5 py-1 text-[11px] font-bold text-primary">
-                    <span className="material-symbols-outlined text-sm">
-                      {SCOPE_ICONS[job.scope] ?? "work"}
-                    </span>
-                    {job.scope}
-                  </span>
-                  {job.work_from_home && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
-                      <span className="material-symbols-outlined text-sm">
-                        home_work
+        <>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {paged.map((job) => {
+              const matchScore = getJobMatchScore(
+                job,
+                diagnosis,
+                autismLevel,
+                city,
+                sector
+              );
+              const fitTags = job.disability_fit.slice(0, 3);
+              return (
+                <article
+                  key={job.id}
+                  className="group flex flex-col rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/10"
+                >
+                  <div className="mb-3 flex items-start justify-between gap-2">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-primary-container/10 font-display text-sm font-black text-primary">
+                      {companyInitials(job.company)}
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-black ${matchBadgeClass(matchScore)}`}
+                      >
+                        {matchScore}% {JOBS.matchLabel}
                       </span>
-                      {JOBS.workFromHome}
-                    </span>
-                  )}
-                  {fitTags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="mt-auto flex flex-col gap-2 border-t border-slate-100 pt-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-black text-on-surface">
-                      {job.salary && job.salary !== "לא צוין"
-                        ? job.salary
-                        : "שכר לא צוין"}
-                    </span>
+                      <span className="rounded-full bg-slate-50 px-3 py-1 text-[11px] font-bold text-outline">
+                        {timeAgo(job.created_at)}
+                      </span>
+                    </div>
                   </div>
-                  <Link
-                    href={`/dashboard/jobs/${job.id}`}
-                    className="flex items-center justify-center gap-1 rounded-2xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-primary/20 transition-all hover:brightness-110 active:scale-95"
-                  >
-                    {JOBS.apply}
-                    <span className="material-symbols-outlined text-base">
-                      arrow_back
+
+                  <h3 className="mb-1 font-display text-base font-bold leading-tight text-on-surface transition-colors group-hover:text-primary">
+                    <Link href={`/dashboard/jobs/${job.id}`}>{job.title}</Link>
+                  </h3>
+                  <p className="mb-3 text-sm text-on-surface-variant">
+                    {job.company} · {job.city}
+                  </p>
+
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-primary/5 px-2.5 py-1 text-[11px] font-bold text-primary">
+                      <span className="material-symbols-outlined text-sm">
+                        {SCOPE_ICONS[job.scope] ?? "work"}
+                      </span>
+                      {job.scope}
                     </span>
-                  </Link>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+                    {job.work_from_home && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+                        <span className="material-symbols-outlined text-sm">
+                          home_work
+                        </span>
+                        {JOBS.workFromHome}
+                      </span>
+                    )}
+                    {fitTags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="mt-auto flex flex-col gap-2 border-t border-slate-100 pt-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-black text-on-surface">
+                        {job.salary && job.salary !== "לא צוין"
+                          ? job.salary
+                          : "שכר לא צוין"}
+                      </span>
+                    </div>
+                    <Link
+                      href={`/dashboard/jobs/${job.id}`}
+                      className="flex items-center justify-center gap-1 rounded-2xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-primary/20 transition-all hover:brightness-110 active:scale-95"
+                    >
+                      {JOBS.apply}
+                      <span className="material-symbols-outlined text-base">
+                        arrow_back
+                      </span>
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          {totalPages > 1 && (
+            <nav
+              aria-label="עימוד משרות"
+              className="glass-card flex flex-col items-center gap-4 rounded-2xl border border-slate-100/80 bg-gradient-to-b from-white to-slate-50/80 px-4 py-5 shadow-sm sm:flex-row sm:justify-between sm:px-6"
+            >
+              <p className="text-sm font-medium text-on-surface-variant">
+                משרות{" "}
+                <span className="font-black text-on-surface">
+                  {rangeStart}–{rangeEnd}
+                </span>{" "}
+                מתוך{" "}
+                <span className="font-black text-on-surface">{filtered.length}</span>
+              </p>
+
+              <div className="flex items-center gap-1.5" dir="rtl">
+                <button
+                  type="button"
+                  onClick={() => goToPage(page - 1)}
+                  disabled={page <= 1}
+                  aria-label="עמוד קודם"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-outline-variant/40 bg-white text-on-surface transition-all hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  <span className="material-symbols-outlined text-xl">
+                    chevron_right
+                  </span>
+                </button>
+
+                {pageItems.map((item, idx) =>
+                  item === "ellipsis" ? (
+                    <span
+                      key={`e-${idx}`}
+                      className="flex h-10 w-8 items-center justify-center text-sm font-bold text-outline"
+                    >
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => goToPage(item)}
+                      aria-label={`עמוד ${item}`}
+                      aria-current={item === page ? "page" : undefined}
+                      className={`flex h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-black transition-all ${
+                        item === page
+                          ? "bg-primary text-white shadow-md shadow-primary/25"
+                          : "border border-outline-variant/40 bg-white text-on-surface hover:border-primary hover:bg-primary/5"
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => goToPage(page + 1)}
+                  disabled={page >= totalPages}
+                  aria-label="עמוד הבא"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-outline-variant/40 bg-white text-on-surface transition-all hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  <span className="material-symbols-outlined text-xl">
+                    chevron_left
+                  </span>
+                </button>
+              </div>
+            </nav>
+          )}
+        </>
       ) : (
         <div className="glass-card flex flex-col items-center gap-4 rounded-[2rem] px-8 py-20 text-center">
           <span className="material-symbols-outlined text-6xl text-outline-variant">
