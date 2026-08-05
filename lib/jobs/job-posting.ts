@@ -12,14 +12,47 @@ const EMPLOYMENT_SCOPE: Record<string, string> = {
 /** מקסימום גיל משרה בימים כשאין validThrough */
 export const MAX_JOB_AGE_DAYS = 90;
 
+/** מנקה HTML / entities לטקסט קריא (גם תוכן מקודד כפול מ-Greenhouse) */
 export function stripHtml(html: string): string {
-  return html
+  if (!html) return "";
+
+  let text = html;
+
+  // פעמיים — למקרה של double-encoding (&amp;lt; → &lt; → <)
+  for (let i = 0; i < 2; i += 1) {
+    text = text
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;|&apos;/gi, "'")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&#(\d+);/g, (_, code: string) => {
+        const n = Number(code);
+        return Number.isFinite(n) ? String.fromCharCode(n) : "";
+      })
+      .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => {
+        const n = Number.parseInt(hex, 16);
+        return Number.isFinite(n) ? String.fromCharCode(n) : "";
+      })
+      .replace(/&amp;/gi, "&");
+  }
+
+  text = text
     .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, "\n")
+    .replace(/<li[^>]*>/gi, "• ")
     .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/\s+\n/g, "\n")
+    // שאריות כמו lt;p&gt; אם משהו נשבר באמצע
+    .replace(/\blt;\/?[a-z][^&\s]*&gt;/gi, "")
+    .replace(/\blt;\/?[a-z][^>\s]*>/gi, "")
+    .replace(/&gt;/gi, ">")
+    .replace(/&lt;/gi, "<")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
     .trim();
+
+  return text;
 }
 
 export interface JobPostingJson {

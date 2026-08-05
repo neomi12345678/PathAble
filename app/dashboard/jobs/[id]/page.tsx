@@ -112,7 +112,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
             <h2 className="mb-3 font-display text-lg font-bold text-on-surface">
               תיאור המשרה
             </h2>
-            <p className="leading-relaxed text-on-surface-variant">
+            <p className="whitespace-pre-line leading-relaxed text-on-surface-variant">
               {job.description}
             </p>
           </section>

@@ -1,7 +1,7 @@
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, tryCreateAdminClient } from "@/lib/supabase/admin";
-import { enrichDisabilityFit } from "@/lib/jobs/job-posting";
+import { enrichDisabilityFit, stripHtml } from "@/lib/jobs/job-posting";
 import { triggerJobSyncIfStale } from "@/lib/jobs/auto-sync";
 import type { Job, Profession, Question } from "@/types";
 
@@ -25,9 +25,11 @@ function mapJobRow(row: {
   profession_id: string | null;
 }): Job {
   const socialLevel = row.social_interaction_level ?? "בינוני";
+  const description = stripHtml(row.description ?? "");
+  const autismReason = stripHtml(row.autism_match_reason ?? "");
   const disabilityFit = enrichDisabilityFit(
     row.title,
-    row.description,
+    description,
     row.work_from_home,
     socialLevel,
     row.disability_fit ?? []
@@ -38,7 +40,7 @@ function mapJobRow(row: {
     title: row.title,
     company: row.company,
     city: row.city,
-    description: row.description,
+    description,
     salary: row.salary,
     apply_url: row.apply_url,
     work_from_home: row.work_from_home,
@@ -48,7 +50,7 @@ function mapJobRow(row: {
     created_at: row.created_at,
     social_interaction_level: socialLevel,
     support_features: row.support_features ?? [],
-    autism_match_reason: row.autism_match_reason ?? "",
+    autism_match_reason: autismReason,
     disability_fit: disabilityFit,
     profession_id: row.profession_id ?? undefined,
   };
