@@ -1,5 +1,5 @@
 import {
-  fetchJobPage,
+  fetchJobPageWithRetry,
   GOTFRIENDS_BROWSER_HEADERS,
   type FetchPageOptions,
 } from "@/lib/jobs/http-fetch";
@@ -41,8 +41,24 @@ const GOTFRIENDS_FETCH: FetchPageOptions = {
   headers: GOTFRIENDS_BROWSER_HEADERS,
 };
 
+const GOTFRIENDS_RETRY = {
+  maxRetries: 2,
+  minDelayMs: 30_000,
+  maxDelayMs: 60_000,
+} as const;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Delay אקראי 2–5 שניות בין בקשות — מפחית rate-limit */
+function randomDelay(minMs = 2_000, maxMs = 5_000): Promise<void> {
+  const ms = minMs + Math.floor(Math.random() * (maxMs - minMs + 1));
+  return sleep(ms);
+}
+
+async function fetchGotFriendsPage(url: string): Promise<Awaited<ReturnType<typeof fetchJobPageWithRetry>>> {
+  return fetchJobPageWithRetry(url, GOTFRIENDS_FETCH, GOTFRIENDS_RETRY);
 }
 
 export function extractGotFriendsJobUrls(html: string, category: string): string[] {
@@ -116,7 +132,7 @@ export async function collectGotFriendsJobUrls(): Promise<{
 
   for (const category of GOTFRIENDS_CATEGORIES) {
     const pageUrl = `https://www.gotfriends.co.il/jobslobby/${category}/`;
-    const page = await fetchJobPage(pageUrl, GOTFRIENDS_FETCH);
+    const page = await fetchGotFriendsPage(pageUrl);
 
     if (!page.ok) {
       categoryFailures.push({
@@ -125,7 +141,7 @@ export async function collectGotFriendsJobUrls(): Promise<{
         reason: page.reason ?? "fetch_error",
         detail: page.errorDetail,
       });
-      await sleep(400);
+      await randomDelay();
       continue;
     }
 
@@ -136,7 +152,7 @@ export async function collectGotFriendsJobUrls(): Promise<{
       }
     }
 
-    await sleep(600);
+    await randomDelay();
   }
 
   if (categoryFailures.length > 0) {
@@ -168,7 +184,7 @@ function bumpReason(
 }
 
 export async function fetchGotFriendsJob(url: string): Promise<SyncJobRow | null> {
-  const verified = await verifyJobPage(url, GOTFRIENDS_FETCH);
+  const verified = await verifyJobPage(url, GOTFRIENDS_FETCH, GOTFRIENDS_RETRY);
   if (!verified.ok) return null;
 
   const slug = gotfriendsUrlToSlug(verified.finalUrl);
@@ -200,14 +216,14 @@ export async function syncGotFriendsJobs(): Promise<SourceFetchResult> {
 
   for (const url of urls) {
     try {
-      const verified = await verifyJobPage(url, GOTFRIENDS_FETCH);
+      const verified = await verifyJobPage(url, GOTFRIENDS_FETCH, GOTFRIENDS_RETRY);
       if (!verified.ok) {
         const key =
           verified.reason === "fetch_error" && verified.httpStatus
             ? `fetch_error_${verified.httpStatus}`
             : verified.reason;
         bumpReason(verifyFailures, key);
-        await sleep(250);
+        await randomDelay();
         continue;
       }
 
@@ -231,7 +247,7 @@ export async function syncGotFriendsJobs(): Promise<SourceFetchResult> {
 
       row.last_verified_at = new Date().toISOString();
       rows.push(row);
-      await sleep(250);
+      await randomDelay();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const key = message.includes("timeout")
@@ -251,7 +267,8 @@ export async function syncGotFriendsJobs(): Promise<SourceFetchResult> {
       otherFailures,
     });
 
-    const apifyRows = await syncGotFriendsViaApify();
+    const apifyRows =
+      process.env.SKIP_APIFY === "1" ? [] : await syncGotFriendsViaApify();
     if (apifyRows.length > 0) {
       logger.warn("GotFriends recovered via Apify fallback", {
         count: apifyRows.length,
