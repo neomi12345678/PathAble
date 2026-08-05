@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { Job } from "@/types";
 import {
@@ -102,6 +102,33 @@ export function JobsBoard({
     []
   );
   const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const categoriesRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!categoriesOpen) return;
+
+    const close = (): void => setCategoriesOpen(false);
+
+    const onPointerDown = (event: MouseEvent | TouchEvent): void => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (categoriesRef.current?.contains(target)) return;
+      close();
+    };
+
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") close();
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [categoriesOpen]);
   const [supportLevelFilter, setSupportLevelFilter] = useState<
     SupportLevel | "all"
   >("all");
@@ -382,7 +409,7 @@ export function JobsBoard({
                 </option>
               ))}
             </select>
-            <div className="relative">
+            <div className="relative" ref={categoriesRef}>
               <button
                 type="button"
                 onClick={() => setCategoriesOpen((v) => !v)}
