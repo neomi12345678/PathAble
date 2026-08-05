@@ -6,10 +6,19 @@ import {
 } from "@/lib/data/modules";
 import { awardModuleBadges } from "@/lib/data/achievements";
 import { logger } from "@/lib/logger";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { learningCompleteSchema, parseBody } from "@/utils/validation";
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
+    const user = await getAuthUser();
+    if (!user) {
+      return NextResponse.json({ error: "לא מחובר" }, { status: 401 });
+    }
+
+    const rate = await checkRateLimit(`learning:${user.id}`, 20, 60 * 60_000);
+    if (!rate.ok) return rateLimitResponse(rate.retryAfterSec);
+
     const body = await request.json();
     const parsed = parseBody(learningCompleteSchema, body);
 
@@ -33,11 +42,6 @@ export async function POST(request: Request): Promise<NextResponse> {
         { error: "לא כל התשובות נכונות", data: { passed: false } },
         { status: 400 }
       );
-    }
-
-    const user = await getAuthUser();
-    if (!user) {
-      return NextResponse.json({ error: "לא מחובר" }, { status: 401 });
     }
 
     await upsertUserProgress(user.id, moduleId, "learning", 100, true);

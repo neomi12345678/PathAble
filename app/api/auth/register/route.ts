@@ -5,10 +5,9 @@ import {
   checkRateLimit,
   rateLimitResponse,
 } from "@/lib/rate-limit";
-import { createRouteHandlerClient } from "@/lib/supabase/route-handler";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
-import { sendWelcomeEmail } from "@/lib/email";
+import { sendVerificationEmail, sendWelcomeEmail } from "@/lib/email";
 import { isValidProfessionInterestId } from "@/lib/professions/profession-interests";
 
 const registerSchema = z.object({
@@ -40,7 +39,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const { email, password, fullName, interests } = parsed.data;
 
-    const rate = checkRateLimit(
+    const rate = await checkRateLimit(
       authRateLimitKey("register", email, request),
       8,
       60 * 60_000
@@ -56,7 +55,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       await admin.auth.admin.createUser({
         email,
         password,
-        email_confirm: true,
+        email_confirm: false,
         user_metadata: { first_name: firstName, last_name: lastName },
       });
 
@@ -93,6 +92,31 @@ export async function POST(request: Request): Promise<NextResponse> {
       });
     }
 
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+      new URL(request.url).origin.replace(/\/$/, "");
+
+    const { data: linkData, error: linkError } =
+      await admin.auth.admin.generateLink({
+        type: "signup",
+        email,
+        password,
+        options: {
+          redirectTo: `${appUrl}/auth/callback?next=/onboarding`,
+        },
+      });
+
+    if (linkError) {
+      logger.warn("Verification link generation failed", {
+        error: linkError.message,
+      });
+    }
+
+    const verifyLink = linkData?.properties?.action_link;
+    const verifyResult = verifyLink
+      ? await sendVerificationEmail(email, firstName, verifyLink)
+      : { sent: false, error: "verification link unavailable" };
+
     const welcomeResult = await sendWelcomeEmail(email, firstName);
     if (!welcomeResult.sent) {
       logger.warn("Welcome email not sent", {
@@ -101,34 +125,14 @@ export async function POST(request: Request): Promise<NextResponse> {
       });
     }
 
-    const response = NextResponse.json({
+    return NextResponse.json({
       data: {
         success: true,
+        emailVerificationRequired: true,
+        verificationEmailSent: verifyResult.sent,
         welcomeEmailSent: welcomeResult.sent,
-        welcomeEmailError: welcomeResult.error ?? null,
       },
     });
-    const supabase = createRouteHandlerClient(response);
-
-    const { error: loginError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (loginError) {
-      logger.error("Register login after create failed", {
-        error: loginError.message,
-      });
-      return NextResponse.json(
-        {
-          error:
-            "החשבון נוצר אך ההתחברות האוטומטית נכשלה — נסו להתחבר עם האימייל והסיסמה",
-        },
-        { status: 500 }
-      );
-    }
-
-    return response;
   } catch (error) {
     logger.error("Register failed", { error: String(error) });
     return NextResponse.json({ error: "שגיאה פנימית" }, { status: 500 });

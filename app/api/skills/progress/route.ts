@@ -8,10 +8,19 @@ import {
 } from "@/lib/data/modules";
 import { awardModuleBadges } from "@/lib/data/achievements";
 import { logger } from "@/lib/logger";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { parseBody, skillsProgressSchema } from "@/utils/validation";
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
+    const user = await getAuthUser();
+    if (!user) {
+      return NextResponse.json({ error: "לא מחובר" }, { status: 401 });
+    }
+
+    const rate = await checkRateLimit(`skills:${user.id}`, 60, 60 * 60_000);
+    if (!rate.ok) return rateLimitResponse(rate.retryAfterSec);
+
     const body = await request.json();
     const parsed = parseBody(skillsProgressSchema, body);
 
@@ -34,11 +43,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     const validOption = question.options.some((o) => o.id === selectedOptionId);
     if (!validOption) {
       return NextResponse.json({ error: "תשובה לא תקינה" }, { status: 400 });
-    }
-
-    const user = await getAuthUser();
-    if (!user) {
-      return NextResponse.json({ error: "לא מחובר" }, { status: 401 });
     }
 
     const isCorrect = selectedOptionId === question.correctOptionId;

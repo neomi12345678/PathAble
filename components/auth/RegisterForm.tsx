@@ -53,7 +53,11 @@ export function RegisterForm() {
 
       const json = (await res.json()) as {
         error?: string;
-        data?: { welcomeEmailSent?: boolean };
+        data?: {
+          welcomeEmailSent?: boolean;
+          emailVerificationRequired?: boolean;
+          verificationEmailSent?: boolean;
+        };
       };
 
       if (!res.ok) {
@@ -61,10 +65,21 @@ export function RegisterForm() {
         return;
       }
 
+      if (json.data?.emailVerificationRequired) {
+        toast.success(
+          json.data.verificationEmailSent
+            ? "נרשמת בהצלחה! שלחנו אליך מייל לאימות — אשרי את האימייל ואז התחברי."
+            : "נרשמת בהצלחה! בדק/י את תיבת הדואר לאימות, ואז התחבר/י."
+        );
+        router.push("/auth/confirm");
+        router.refresh();
+        return;
+      }
+
       toast.success(
         json.data?.welcomeEmailSent
           ? "נרשמת בהצלחה! שלחנו אליך מייל ברוכים הבאים."
-          : "נרשמת בהצלחה! (מייל ברוכים הבאים לא נשלח — בדקי ספאם או הרשמי עם אימייל חשבון Resend)"
+          : "נרשמת בהצלחה!"
       );
       router.push("/onboarding");
       router.refresh();

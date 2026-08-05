@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import {
+  authRateLimitKey,
+  checkRateLimit,
+  rateLimitResponse,
+} from "@/lib/rate-limit";
 import { createRouteHandlerClient } from "@/lib/supabase/route-handler";
 import { logger } from "@/lib/logger";
 
@@ -19,6 +24,13 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
+    const rate = await checkRateLimit(
+      authRateLimitKey("forgot-password", parsed.data.email, request),
+      5,
+      60 * 60_000
+    );
+    if (!rate.ok) return rateLimitResponse(rate.retryAfterSec);
+
     const response = NextResponse.json({ data: { success: true } });
     const supabase = createRouteHandlerClient(response);
     const origin = new URL(request.url).origin;
@@ -30,7 +42,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      logger.warn("Forgot password failed", { error: error.message });
+      return NextResponse.json(
+        {
+          error:
+            "לא ניתן לשלוח קישור לאיפוס סיסמה כרגע — נסו שוב מאוחר יותר",
+        },
+        { status: 400 }
+      );
     }
 
     return response;

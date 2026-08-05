@@ -234,24 +234,40 @@ async function upsertJobsWithTimestamps(rows: SyncJobRow[]): Promise<number> {
 /** כמה ימים בלי last_seen לפני השבתה כשמקור מחזיר 0 */
 const STALE_AGE_DAYS_ON_EMPTY = 7;
 
-async function persistSource(result: SourceResult): Promise<number> {
-  if (result.rows.length > 0) {
-    const slugs = result.rows.map((r) => r.slug);
-    await deactivateStaleForPrefix(result.prefix, slugs);
-    logger.warn("Job sync source complete", {
-      source: result.source,
-      synced: result.rows.length,
-    });
-    return result.rows.length;
-  }
+async function applySourceDeactivations(sources: SourceResult[]): Promise<void> {
+  for (const source of sources) {
+    try {
+      if (source.rows.length > 0) {
+        const slugs = source.rows.map((r) => r.slug);
+        await deactivateStaleForPrefix(source.prefix, slugs);
+        logger.warn("Job sync source complete", {
+          source: source.source,
+          synced: source.rows.length,
+        });
+        continue;
+      }
 
-  // 0 משרות ממקור תקין — age-out; skip/failure לא מכבים משרות קיימות
-  if (result.ok) {
-    await deactivateUnseenOlderThan(result.prefix, STALE_AGE_DAYS_ON_EMPTY);
-    logger.warn("Job sync: source returned 0 jobs", { source: result.source });
+      if (source.ok) {
+        await deactivateUnseenOlderThan(source.prefix, STALE_AGE_DAYS_ON_EMPTY);
+        logger.warn("Job sync: source returned 0 jobs", { source: source.source });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.warn("Job sync source deactivation failed", {
+        source: source.source,
+        error: message,
+      });
+    }
   }
+}
 
-  return 0;
+async function deactivateLegacySeedJobs(): Promise<void> {
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("jobs")
+    .update({ active: false })
+    .like("slug", "job-%");
+  if (error) throw error;
 }
 
 /** סנכרון משרות מכל המקורות — רק משרות פעילות ועדכניות */
@@ -262,14 +278,6 @@ export async function runJobSync(): Promise<{
   /** כמה שורות כל מקור שלף — לפני dedup, לא הספירה הסופית בלוח */
   fetchedBySource: Record<string, number>;
 }> {
-  const supabase = createAdminClient();
-
-  const { error: seedErr } = await supabase
-    .from("jobs")
-    .update({ active: false })
-    .like("slug", "job-%");
-  if (seedErr) throw seedErr;
-
   const [drushim, gotfriends, apifyRows, greenhouseRows] = await Promise.all([
     runSource("drushim", "drushim-", syncDrushimJobs),
     runSource("gotfriends", "gotfriends-", syncGotFriendsJobs),
@@ -302,7 +310,7 @@ export async function runJobSync(): Promise<{
 
   const fetchedBySource: Record<string, number> = {};
   for (const source of sources) {
-    fetchedBySource[source.source] = await persistSource(source);
+    fetchedBySource[source.source] = source.rows.length;
   }
 
   const allRows: SyncJobRow[] = sources.flatMap((s) => s.rows);
@@ -310,8 +318,11 @@ export async function runJobSync(): Promise<{
   const duplicateSlugs = findDuplicateSlugsToDeactivate(allRows, winners);
 
   const newJobs = await upsertJobsWithTimestamps(winners);
+
   await deactivateJobsBySlugs(duplicateSlugs);
   await deactivateDbDuplicatesByKey(winners);
+  await applySourceDeactivations(sources);
+  await deactivateLegacySeedJobs();
 
   const total = winners.length;
   const anyOk = sources.some((s) => s.ok && s.rows.length > 0);

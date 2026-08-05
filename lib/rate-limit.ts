@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
+import { logger } from "@/lib/logger";
 
 interface Bucket {
   count: number;
@@ -20,7 +22,7 @@ export function getClientIp(request: Request): string {
 
 /** Per-user keys avoid blocking all traffic when IP is shared (Vercel, classroom Wi‑Fi). */
 export function authRateLimitKey(
-  action: "login" | "register",
+  action: "login" | "register" | "forgot-password",
   email: string,
   request: Request
 ): string {
@@ -29,7 +31,7 @@ export function authRateLimitKey(
   return `${action}:${normalized}:${ip}`;
 }
 
-export function checkRateLimit(
+function checkRateLimitMemory(
   key: string,
   limit: number,
   windowMs: number
@@ -51,6 +53,46 @@ export function checkRateLimit(
 
   bucket.count += 1;
   return { ok: true };
+}
+
+export async function checkRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number
+): Promise<{ ok: true } | { ok: false; retryAfterSec: number }> {
+  const windowSeconds = Math.max(1, Math.ceil(windowMs / 1000));
+  const admin = tryCreateAdminClient();
+
+  if (admin) {
+    try {
+      const { data, error } = await admin.rpc("check_rate_limit", {
+        p_key: key,
+        p_limit: limit,
+        p_window_seconds: windowSeconds,
+      });
+
+      if (!error && data && typeof data === "object" && data !== null) {
+        const result = data as { ok?: boolean; retry_after_sec?: number };
+        if (result.ok === true) return { ok: true };
+        if (result.ok === false) {
+          return {
+            ok: false,
+            retryAfterSec: result.retry_after_sec ?? 60,
+          };
+        }
+      }
+
+      if (error?.message.includes("does not exist")) {
+        logger.warn("check_rate_limit RPC missing — using in-memory fallback");
+      }
+    } catch (rateError) {
+      logger.warn("Supabase rate limit failed — using in-memory fallback", {
+        error: String(rateError),
+      });
+    }
+  }
+
+  return checkRateLimitMemory(key, limit, windowMs);
 }
 
 export function rateLimitResponse(retryAfterSec: number): NextResponse {

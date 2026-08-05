@@ -33,7 +33,8 @@ async function rpcAvailable(
         : await supabase.rpc(fn, { p_keys: [] as string[] });
 
   if (!probe.error) return true;
-  return isMissingRpcError(probe.error.message);
+  if (isMissingRpcError(probe.error.message)) return false;
+  return false;
 }
 
 export async function deactivateJobsBySlugs(slugs: string[]): Promise<void> {

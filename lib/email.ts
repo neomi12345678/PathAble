@@ -186,3 +186,52 @@ export async function sendWelcomeEmail(
 
   return { sent: true };
 }
+
+export async function sendVerificationEmail(
+  to: string,
+  firstName: string | undefined,
+  verifyLink: string
+): Promise<{ sent: boolean; error?: string }> {
+  const resend = getResendClient();
+  if (!resend) {
+    const message = "RESEND_API_KEY is not configured";
+    logger.warn("Verification email skipped", { message });
+    return { sent: false, error: message };
+  }
+
+  const greetingName = firstName?.trim()
+    ? `שלום ${firstName.trim()},`
+    : "שלום,";
+  const toAddress = to.trim().toLowerCase();
+  const fromAddress = getFromAddress();
+
+  const result = await resend.emails.send({
+    from: `${APP_NAME} | PathAble <${fromAddress}>`,
+    to: toAddress,
+    subject: `אימות כתובת האימייל — ${APP_NAME}`,
+    html: `<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<body style="font-family:Arial,sans-serif;background:#eef6fb;padding:32px;">
+  <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:16px;padding:32px;">
+    <h1 style="color:#0284c7;margin:0 0 16px;">${greetingName}</h1>
+    <p style="color:#334155;line-height:1.7;">לחצ/י על הכפתור לאימות כתובת האימייל לפני הכניסה ל-${APP_NAME}:</p>
+    <p style="margin:28px 0;">
+      <a href="${verifyLink}" style="display:inline-block;background:#0284c7;color:#fff;padding:14px 28px;border-radius:12px;text-decoration:none;font-weight:bold;">אימות אימייל</a>
+    </p>
+    <p style="color:#64748b;font-size:14px;">אם לא נרשמת ל-${APP_NAME}, אפשר להתעלם מהודעה זו.</p>
+  </div>
+</body>
+</html>`,
+    text: `${greetingName}\n\nאימות אימייל:\n${verifyLink}`,
+  });
+
+  if (result.error) {
+    logger.error("Verification email failed", {
+      error: result.error.message,
+      to: toAddress,
+    });
+    return { sent: false, error: result.error.message };
+  }
+
+  return { sent: true };
+}
