@@ -5,12 +5,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { tryCreateClient } from "@/lib/supabase/server";
 import type { Profile } from "@/types";
 
-const PROFILE_INTEREST_OPTIONS: Omit<ProfileInterest, "checked">[] = [
-  { id: "ai", label: "בינה מלאכותית" },
-  { id: "accessibility", label: "נגישות דיגיטלית" },
-  { id: "coding", label: "פיתוח קוד" },
-  { id: "product", label: "ניהול מוצר" },
-];
+import {
+  isValidProfessionInterestId,
+  profileInterestOptionsForUi,
+} from "@/lib/professions/profession-interests";
 function mapProfile(row: ProfileRow): Profile {
   return {
     id: row.id,
@@ -37,6 +35,10 @@ export function rowToProfilePrefs(row: ProfileRow): UserProfilePrefs | null {
     city: row.city ?? undefined,
     onboardingComplete: row.onboarding_complete,
     avatar: row.avatar ?? undefined,
+    interests: (row.interests ?? []).filter(
+      (id): id is string =>
+        typeof id === "string" && isValidProfessionInterestId(id)
+    ),
   };
 }
 
@@ -131,15 +133,11 @@ export interface ProfileUpdateInput {
   email_notifications?: boolean;
 }
 
-const VALID_INTEREST_IDS = new Set(
-  PROFILE_INTEREST_OPTIONS.map((item) => item.id)
-);
-
 export async function updateProfileDetails(
   userId: string,
   input: ProfileUpdateInput
 ): Promise<void> {
-  const interests = input.interests.filter((id) => VALID_INTEREST_IDS.has(id));
+  const interests = input.interests.filter(isValidProfessionInterestId);
   const supabase = createAdminClient();
   const { error } = await supabase
     .from("profiles")
@@ -193,10 +191,9 @@ export async function getProfileExtras(userId: string): Promise<{
     .maybeSingle();
 
   const interestIds = (data?.interests ?? []) as string[];
-  const interests = PROFILE_INTEREST_OPTIONS.map((i) => ({
-    ...i,
-    checked: interestIds.includes(i.id),
-  }));
+  const interests = profileInterestOptionsForUi(
+    interestIds.filter(isValidProfessionInterestId)
+  );
 
   const prefs = (data?.preferences ?? {}) as Record<string, unknown>;
 

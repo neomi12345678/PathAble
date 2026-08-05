@@ -9,6 +9,7 @@ import { createRouteHandlerClient } from "@/lib/supabase/route-handler";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import { sendWelcomeEmail } from "@/lib/email";
+import { isValidProfessionInterestId } from "@/lib/professions/profession-interests";
 
 const registerSchema = z.object({
   email: z.string().email("אימייל לא תקין"),
@@ -78,7 +79,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       profileUpdate.last_name = lastName;
     }
     if (interests?.length) {
-      profileUpdate.interests = interests;
+      profileUpdate.interests = interests.filter(isValidProfessionInterestId);
     }
 
     const { error: profileError } = await admin

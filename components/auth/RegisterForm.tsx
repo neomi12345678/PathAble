@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { registerInterestOptionsForUi } from "@/lib/professions/profession-interests";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { APP_NAME, AUTH, COMMON } from "@/utils/texts";
 
@@ -13,12 +14,7 @@ const STEPS = [
   { id: 3, label: "סיום" },
 ];
 
-const INTERESTS = [
-  { id: "dev", label: "פיתוח תוכנה", icon: "code" },
-  { id: "design", label: "עיצוב וחוויית משתמש", icon: "palette" },
-  { id: "marketing", label: "שיווק ודיגיטל", icon: "trending_up" },
-  { id: "ai", label: "בינה מלאכותית", icon: "psychology" },
-];
+const INTERESTS = registerInterestOptionsForUi();
 
 export function RegisterForm() {
   const router = useRouter();
@@ -206,7 +202,7 @@ export function RegisterForm() {
                 בחרו את התחומים שתרצו להתמקד בהם במסלול הקריירה שלכם.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {INTERESTS.map((it) => {
                 const selected = interests.includes(it.id);
                 return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import type { Profession } from "@/types";
 import { ProfessionCard } from "@/components/professions/ProfessionCard";
@@ -10,6 +10,11 @@ import {
   JOB_CATEGORY_IDS,
   type JobCategoryId,
 } from "@/lib/jobs/job-categories";
+import {
+  getProfessionInterestLabel,
+  interestIdsToCategories,
+  professionMatchesUserInterests,
+} from "@/lib/professions/profession-interests";
 import { useUserProfile } from "@/hooks/useUserProfile";
 
 const PAGE_SIZE = 9;
@@ -81,9 +86,25 @@ export function ProfessionsCatalog({
   const [page, setPage] = useState(1);
 
   const [onlyMyDiagnosis, setOnlyMyDiagnosis] = useState(false);
+  const [onlyMyInterests, setOnlyMyInterests] = useState(false);
+  const [interestsInitialized, setInterestsInitialized] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const { diagnosis, autismLevel, diagnosisLabel, loading: profileLoading } =
-    useUserProfile();
+  const {
+    diagnosis,
+    autismLevel,
+    interests,
+    diagnosisLabel,
+    loading: profileLoading,
+  } = useUserProfile();
+
+  useEffect(() => {
+    if (profileLoading || interestsInitialized) return;
+    if (interests.length > 0) {
+      setOnlyMyInterests(true);
+      setActiveCategories(new Set(interestIdsToCategories(interests)));
+    }
+    setInterestsInitialized(true);
+  }, [profileLoading, interests, interestsInitialized]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -99,6 +120,13 @@ export function ProfessionsCatalog({
       }))
       .filter((item) => {
         if (onlyMyDiagnosis && diagnosis && !item.fitsDiagnosis) return false;
+        if (
+          onlyMyInterests &&
+          interests.length > 0 &&
+          !professionMatchesUserInterests(item.profession, interests)
+        ) {
+          return false;
+        }
         if (item.match < minMatch) return false;
         if (
           activeCategories.size > 0 &&
@@ -126,7 +154,18 @@ export function ProfessionsCatalog({
     });
 
     return result;
-  }, [professions, search, activeCategories, minMatch, sort, diagnosis, autismLevel, onlyMyDiagnosis]);
+  }, [
+    professions,
+    search,
+    activeCategories,
+    minMatch,
+    sort,
+    diagnosis,
+    autismLevel,
+    onlyMyDiagnosis,
+    onlyMyInterests,
+    interests,
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -149,6 +188,7 @@ export function ProfessionsCatalog({
     setActiveCategories(new Set());
     setMinMatch(0);
     setSearch("");
+    setOnlyMyInterests(false);
     setPage(1);
   };
 
@@ -169,6 +209,13 @@ export function ProfessionsCatalog({
               <>
                 מקצועות מותאמים לאבחנה שלך:{" "}
                 <span className="font-black text-primary">{diagnosisLabel}</span>
+              </>
+            ) : interests.length > 0 ? (
+              <>
+                מסונן לפי תחומי העניין שלך:{" "}
+                <span className="font-black text-primary">
+                  {interests.map(getProfessionInterestLabel).join(" · ")}
+                </span>
               </>
             ) : (
               <>
@@ -280,7 +327,39 @@ export function ProfessionsCatalog({
 
             <div className="mb-10">
               <p className="mb-5 text-xs font-black uppercase tracking-widest text-outline">
-                תחומי עניין
+                תחומי עניין שלי
+              </p>
+              <label
+                className={`group flex flex-row-reverse items-center justify-end gap-3 ${
+                  interests.length > 0
+                    ? "cursor-pointer"
+                    : "cursor-not-allowed opacity-50"
+                }`}
+              >
+                <span className="font-bold text-on-surface/80 transition-colors group-hover:text-primary-container">
+                  {interests.length > 0
+                    ? `רק מקצועות ב-${interests.map(getProfessionInterestLabel).join(", ")}`
+                    : "בחר/י תחומי עניין בפרופיל או בהרשמה"}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={onlyMyInterests}
+                  disabled={interests.length === 0}
+                  onChange={(e) => {
+                    setOnlyMyInterests(e.target.checked);
+                    if (e.target.checked && interests.length > 0) {
+                      setActiveCategories(new Set(interestIdsToCategories(interests)));
+                    }
+                    setPage(1);
+                  }}
+                  className="h-5 w-5 rounded-md border-outline-variant text-primary-container focus:ring-primary-container/20 disabled:opacity-40"
+                />
+              </label>
+            </div>
+
+            <div className="mb-10">
+              <p className="mb-5 text-xs font-black uppercase tracking-widest text-outline">
+                תחומי עיסוק
               </p>
               <div className="space-y-4">
                 {CATEGORY_FILTER_IDS.map((catId) => (

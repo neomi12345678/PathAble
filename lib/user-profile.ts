@@ -23,6 +23,8 @@ export interface UserProfilePrefs {
   city?: string;
   onboardingComplete: boolean;
   avatar?: string;
+  /** תחומי עניין מקצועיים — לסינון מאגר מקצועות */
+  interests?: string[];
 }
 
 export function isValidDiagnosis(value: string): value is DiagnosisType {

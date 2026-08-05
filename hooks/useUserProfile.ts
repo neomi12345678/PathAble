@@ -18,6 +18,7 @@ export function useUserProfile(): {
   autismLevel?: AutismLevel;
   city?: string;
   sector?: string;
+  interests: string[];
   diagnosisLabel: string;
 } {
   const [profile, setProfile] = useState<UserProfilePrefs | null>(null);
@@ -46,6 +47,8 @@ export function useUserProfile(): {
     ? getDiagnosisLabel(profile)
     : "לא צוינה אבחנה";
 
+  const interests = profile?.interests ?? [];
+
   return {
     profile,
     loading,
@@ -53,6 +56,7 @@ export function useUserProfile(): {
     autismLevel: profile?.autism_level,
     city: profile?.city,
     sector: profile?.sector,
+    interests,
     diagnosisLabel,
   };
 }
