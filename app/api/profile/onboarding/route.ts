@@ -166,7 +166,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       httpOnly: true,
       sameSite: "lax",
       path: "/",
-      maxAge: 120,
+      maxAge: 300,
     });
     return res;
 

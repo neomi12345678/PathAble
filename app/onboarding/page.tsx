@@ -175,7 +175,7 @@ export default function OnboardingPage() {
       }
 
       toast.success("הפרופיל נשמר — ההתאמות מחושבות לפי האבחנה שלך");
-      window.location.href = isUpdate ? "/dashboard/profile" : "/dashboard/assessment";
+      window.location.href = isUpdate ? "/dashboard/profile" : "/dashboard";
     } catch {
       toast.error("שגיאה בשמירה, נסה שוב");
     } finally {
@@ -190,15 +190,25 @@ export default function OnboardingPage() {
           <span className="font-display text-xl font-black text-primary">
             {APP_NAME}
           </span>
-          <div className="flex items-center gap-2 text-xs font-bold text-outline">
-            <span className={step >= 1 ? "text-primary" : ""}>מגזר</span>
-            <span>·</span>
-            <span className={step >= 2 ? "text-primary" : ""}>אבחנה</span>
-            {diagnosis === "אוטיזם" && (
-              <>
-                <span>·</span>
-                <span className={step >= 3 ? "text-primary" : ""}>תפקוד</span>
-              </>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-xs font-bold text-outline">
+              <span className={step >= 1 ? "text-primary" : ""}>מגזר</span>
+              <span>·</span>
+              <span className={step >= 2 ? "text-primary" : ""}>אבחנה</span>
+              {diagnosis === "אוטיזם" && (
+                <>
+                  <span>·</span>
+                  <span className={step >= 3 ? "text-primary" : ""}>תפקוד</span>
+                </>
+              )}
+            </div>
+            {!isUpdate && (
+              <a
+                href="/api/auth/logout?next=/auth/register"
+                className="text-xs font-bold text-primary hover:underline"
+              >
+                התנתק / חשבון אחר
+              </a>
             )}
           </div>
         </div>

@@ -63,6 +63,12 @@ export async function updateSession(request: NextRequest): Promise<{
     role = profile?.role ?? role;
   }
 
+  const onboardedCookie =
+    request.cookies.get("pathable_onboarded")?.value === "1";
+  if (user && onboardedCookie) {
+    onboardingComplete = true;
+  }
+
   return {
     response: supabaseResponse,
     user: user ? { id: user.id, email: user.email } : null,

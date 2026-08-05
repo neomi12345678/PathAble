@@ -21,8 +21,8 @@ function withSessionCookies(
   target: NextResponse,
   source: NextResponse
 ): NextResponse {
-  source.cookies.getAll().forEach((cookie) => {
-    target.cookies.set(cookie.name, cookie.value, cookie);
+  source.cookies.getAll().forEach(({ name, value }) => {
+    target.cookies.set(name, value);
   });
   return target;
 }
@@ -93,10 +93,15 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     }
 
     if (isPublicPath && user && pathname.startsWith("/auth/")) {
-      return withSessionCookies(
-        NextResponse.redirect(new URL("/dashboard", request.url)),
-        response
-      );
+      if (onboardingComplete) {
+        return withSessionCookies(
+          NextResponse.redirect(new URL("/dashboard", request.url)),
+          response
+        );
+      }
+      if (pathname === "/auth/login" || pathname === "/auth/register") {
+        return response;
+      }
     }
 
     if (pathname.startsWith("/dashboard") && onboardingComplete) {
