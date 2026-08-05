@@ -1,4 +1,4 @@
--- שמירת משרות לעיון מאוחר
+-- שמירת משרות לעיון מאוחר (idempotent — ניתן להריץ שוב)
 create table if not exists public.saved_jobs (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
@@ -9,6 +9,7 @@ create table if not exists public.saved_jobs (
 
 alter table public.saved_jobs enable row level security;
 
+drop policy if exists saved_jobs_all on public.saved_jobs;
 create policy saved_jobs_all on public.saved_jobs
   for all
   using (auth.uid() = user_id)
