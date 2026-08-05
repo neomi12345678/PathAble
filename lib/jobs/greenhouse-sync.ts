@@ -5,6 +5,7 @@ import {
   type SyncJobRow,
 } from "@/lib/jobs/job-posting";
 import { USER_AGENT } from "@/lib/jobs/http-fetch";
+import { type SourceFetchResult } from "@/lib/jobs/sync-health";
 import { logger } from "@/lib/logger";
 
 interface GreenhouseJob {
@@ -81,7 +82,7 @@ async function fetchBoardJobs(board: GreenhouseBoard): Promise<SyncJobRow[]> {
   return rows;
 }
 
-export async function syncGreenhouseJobs(): Promise<SyncJobRow[]> {
+export async function syncGreenhouseJobs(): Promise<SourceFetchResult> {
   const bySlug = new Map<string, SyncJobRow>();
   const boardFailures: string[] = [];
 
@@ -100,6 +101,12 @@ export async function syncGreenhouseJobs(): Promise<SyncJobRow[]> {
     }
   }
 
+  if (boardFailures.length === GREENHOUSE_BOARDS.length) {
+    throw new Error(
+      `Greenhouse: all ${GREENHOUSE_BOARDS.length} boards failed (${boardFailures.join(", ")})`
+    );
+  }
+
   if (boardFailures.length > 0) {
     logger.warn("Greenhouse partial board failures", {
       failed: boardFailures,
@@ -107,5 +114,8 @@ export async function syncGreenhouseJobs(): Promise<SyncJobRow[]> {
     });
   }
 
-  return [...bySlug.values()];
+  return {
+    rows: [...bySlug.values()],
+    fetchComplete: boardFailures.length === 0,
+  };
 }

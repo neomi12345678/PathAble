@@ -12,7 +12,7 @@ import {
   type SyncJobRow,
 } from "@/lib/jobs/job-posting";
 import { verifyJobPage } from "@/lib/jobs/verify-job-page";
-import { SourceSkippedError } from "@/lib/jobs/sync-health";
+import { SourceSkippedError, type SourceFetchResult } from "@/lib/jobs/sync-health";
 import { logger } from "@/lib/logger";
 
 function enrichGotFriendsPosting(html: string, posting: JobPostingJson): JobPostingJson {
@@ -106,7 +106,10 @@ interface CategoryFetchFailure {
   detail?: string;
 }
 
-export async function collectGotFriendsJobUrls(): Promise<string[]> {
+export async function collectGotFriendsJobUrls(): Promise<{
+  urls: string[];
+  fetchComplete: boolean;
+}> {
   const seen = new Set<string>();
   const urls: string[] = [];
   const categoryFailures: CategoryFetchFailure[] = [];
@@ -151,7 +154,10 @@ export async function collectGotFriendsJobUrls(): Promise<string[]> {
     });
   }
 
-  return urls;
+  return {
+    urls,
+    fetchComplete: categoryFailures.length === 0,
+  };
 }
 
 function bumpReason(
@@ -179,14 +185,15 @@ export async function fetchGotFriendsJob(url: string): Promise<SyncJobRow | null
   return row;
 }
 
-export async function syncGotFriendsJobs(): Promise<SyncJobRow[]> {
+export async function syncGotFriendsJobs(): Promise<SourceFetchResult> {
   // Vercel נחסם ב-403 — GotFriends מתעדכן מ-GitHub Actions בלבד
   if (process.env.VERCEL === "1") {
     logger.warn("GotFriends direct sync skipped on Vercel (use GitHub Actions)");
     throw new SourceSkippedError("gotfriends");
   }
 
-  const urls = await collectGotFriendsJobUrls();
+  const { urls, fetchComplete: urlsFetchComplete } =
+    await collectGotFriendsJobUrls();
   const rows: SyncJobRow[] = [];
   const verifyFailures: Record<string, number> = {};
   const otherFailures: Record<string, number> = {};
@@ -249,7 +256,7 @@ export async function syncGotFriendsJobs(): Promise<SyncJobRow[]> {
       logger.warn("GotFriends recovered via Apify fallback", {
         count: apifyRows.length,
       });
-      return apifyRows;
+      return { rows: apifyRows, fetchComplete: false };
     }
   } else if (Object.keys(verifyFailures).length > 0) {
     logger.warn("GotFriends sync partial failures", {
@@ -260,5 +267,5 @@ export async function syncGotFriendsJobs(): Promise<SyncJobRow[]> {
     });
   }
 
-  return rows;
+  return { rows, fetchComplete: urlsFetchComplete };
 }

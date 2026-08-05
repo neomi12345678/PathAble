@@ -4,7 +4,7 @@ import {
   type SyncJobRow,
 } from "@/lib/jobs/job-posting";
 import { isPlaceholderCompany } from "@/lib/jobs/dedup";
-import { SourceSkippedError } from "@/lib/jobs/sync-health";
+import { SourceSkippedError, type SourceFetchResult } from "@/lib/jobs/sync-health";
 import { logger } from "@/lib/logger";
 
 interface ApifyJobItem {
@@ -134,7 +134,7 @@ function shouldRunApifyOnThisHost(): boolean {
 }
 
 /** סנכרון AllJobs / JobMaster / JobNet — דורש APIFY_TOKEN; לא רץ על Vercel */
-export async function syncApifyJobs(): Promise<SyncJobRow[]> {
+export async function syncApifyJobs(): Promise<SourceFetchResult> {
   if (!shouldRunApifyOnThisHost()) {
     logger.warn("Apify skipped on this host (use GitHub Actions)", {
       vercel: process.env.VERCEL === "1",
@@ -173,5 +173,8 @@ export async function syncApifyJobs(): Promise<SyncJobRow[]> {
     throw new Error("Apify sync failed for all keywords");
   }
 
-  return [...bySlug.values()];
+  return {
+    rows: [...bySlug.values()],
+    fetchComplete: failedKeywords === 0,
+  };
 }

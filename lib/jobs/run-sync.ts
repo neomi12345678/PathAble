@@ -19,6 +19,7 @@ import {
   recordSourceFailure,
   recordSourceSuccess,
   SourceSkippedError,
+  type SourceFetchResult,
 } from "@/lib/jobs/sync-health";
 import { verifyJobPage } from "@/lib/jobs/verify-job-page";
 import {
@@ -34,11 +35,23 @@ interface SourceResult {
   prefix: string;
   rows: SyncJobRow[];
   ok: boolean;
+  /** false = partial fetch — לא מושבתות משרות חסרות מהריצה הנוכחית */
+  fetchComplete: boolean;
 }
 
-async function syncDrushimJobs(): Promise<SyncJobRow[]> {
+function normalizeFetchResult(
+  result: SyncJobRow[] | SourceFetchResult
+): SourceFetchResult {
+  if (Array.isArray(result)) {
+    return { rows: result, fetchComplete: true };
+  }
+  return result;
+}
+
+async function syncDrushimJobs(): Promise<SourceFetchResult> {
   const seen = new Set<string>();
   const urls: string[] = [];
+  let failedQueries = 0;
 
   for (const query of DRUSHIM_SEARCH_QUERIES) {
     const searchUrl = `https://www.drushim.co.il/jobs/search/${query}/`;
@@ -52,6 +65,7 @@ async function syncDrushimJobs(): Promise<SyncJobRow[]> {
         }
       }
     } catch (err) {
+      failedQueries += 1;
       logger.warn("Drushim search failed", {
         query,
         error: err instanceof Error ? err.message : String(err),
@@ -79,27 +93,30 @@ async function syncDrushimJobs(): Promise<SyncJobRow[]> {
     await new Promise((r) => setTimeout(r, 150));
   }
 
-  return rows;
+  return {
+    rows,
+    fetchComplete: failedQueries === 0,
+  };
 }
 
 async function runSource(
   source: string,
   prefix: string,
-  fetchRows: () => Promise<SyncJobRow[]>
+  fetchRows: () => Promise<SyncJobRow[] | SourceFetchResult>
 ): Promise<SourceResult> {
   try {
-    const rows = await fetchRows();
+    const { rows, fetchComplete } = normalizeFetchResult(await fetchRows());
     await recordSourceSuccess(source, rows.length);
-    return { source, prefix, rows, ok: true };
+    return { source, prefix, rows, ok: true, fetchComplete };
   } catch (err) {
     if (err instanceof SourceSkippedError) {
       logger.warn("Job source skipped on this host", { source });
-      return { source, prefix, rows: [], ok: false };
+      return { source, prefix, rows: [], ok: false, fetchComplete: false };
     }
     const message = err instanceof Error ? err.message : String(err);
     await recordSourceFailure(source, message);
     logger.warn("Job source sync failed", { source, error: message });
-    return { source, prefix, rows: [], ok: false };
+    return { source, prefix, rows: [], ok: false, fetchComplete: false };
   }
 }
 
@@ -238,16 +255,23 @@ async function applySourceDeactivations(sources: SourceResult[]): Promise<void> 
   for (const source of sources) {
     try {
       if (source.rows.length > 0) {
-        const slugs = source.rows.map((r) => r.slug);
-        await deactivateStaleForPrefix(source.prefix, slugs);
-        logger.warn("Job sync source complete", {
-          source: source.source,
-          synced: source.rows.length,
-        });
+        if (source.fetchComplete) {
+          const slugs = source.rows.map((r) => r.slug);
+          await deactivateStaleForPrefix(source.prefix, slugs);
+          logger.warn("Job sync source complete", {
+            source: source.source,
+            synced: source.rows.length,
+          });
+        } else {
+          logger.warn("Job sync partial fetch — skipped immediate stale deactivation", {
+            source: source.source,
+            synced: source.rows.length,
+          });
+        }
         continue;
       }
 
-      if (source.ok) {
+      if (source.ok && source.fetchComplete) {
         await deactivateUnseenOlderThan(source.prefix, STALE_AGE_DAYS_ON_EMPTY);
         logger.warn("Job sync: source returned 0 jobs", { source: source.source });
       }
@@ -270,6 +294,61 @@ async function deactivateLegacySeedJobs(): Promise<void> {
   if (error) throw error;
 }
 
+const APIFY_SUB_SOURCES = [
+  { source: "alljobs", prefix: "alljobs-" },
+  { source: "jobmaster", prefix: "jobmaster-" },
+  { source: "jobnet", prefix: "jobnet-" },
+] as const;
+
+function splitApifySubSources(parent: SourceResult): SourceResult[] {
+  return APIFY_SUB_SOURCES.map(({ source, prefix }) => {
+    const rows = parent.rows.filter((r) => r.slug.startsWith(prefix));
+    const ok = parent.ok && (rows.length > 0 || parent.fetchComplete);
+    return {
+      source,
+      prefix,
+      rows,
+      ok,
+      fetchComplete: parent.fetchComplete,
+    };
+  });
+}
+
+async function runApifySource(): Promise<SourceResult> {
+  try {
+    const { rows, fetchComplete } = await syncApifyJobs();
+    await recordSourceSuccess("apify", rows.length);
+    return {
+      source: "apify",
+      prefix: "alljobs-",
+      rows,
+      ok: true,
+      fetchComplete,
+    };
+  } catch (err) {
+    if (err instanceof SourceSkippedError) {
+      logger.warn("Job source skipped on this host", { source: "apify" });
+      return {
+        source: "apify",
+        prefix: "alljobs-",
+        rows: [],
+        ok: false,
+        fetchComplete: false,
+      };
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    await recordSourceFailure("apify", message);
+    logger.warn("Job source sync failed", { source: "apify", error: message });
+    return {
+      source: "apify",
+      prefix: "alljobs-",
+      rows: [],
+      ok: false,
+      fetchComplete: false,
+    };
+  }
+}
+
 /** סנכרון משרות מכל המקורות — רק משרות פעילות ועדכניות */
 export async function runJobSync(): Promise<{
   /** משרות ייחודיות אחרי dedup גלובלי (מה שיישמר ב-DB) */
@@ -278,35 +357,21 @@ export async function runJobSync(): Promise<{
   /** כמה שורות כל מקור שלף — לפני dedup, לא הספירה הסופית בלוח */
   fetchedBySource: Record<string, number>;
 }> {
-  const [drushim, gotfriends, apifyRows, greenhouseRows] = await Promise.all([
+  const [drushim, gotfriends, apifyParent, greenhouseRows] = await Promise.all([
     runSource("drushim", "drushim-", syncDrushimJobs),
     runSource("gotfriends", "gotfriends-", syncGotFriendsJobs),
-    runSource("apify", "alljobs-", syncApifyJobs),
+    runApifySource(),
     runSource("greenhouse", "greenhouse-", syncGreenhouseJobs),
   ]);
 
-  const apifyBySource: SourceResult[] = [
-    {
-      source: "alljobs",
-      prefix: "alljobs-",
-      rows: apifyRows.rows.filter((r) => r.slug.startsWith("alljobs-")),
-      ok: apifyRows.ok,
-    },
-    {
-      source: "jobmaster",
-      prefix: "jobmaster-",
-      rows: apifyRows.rows.filter((r) => r.slug.startsWith("jobmaster-")),
-      ok: apifyRows.ok,
-    },
-    {
-      source: "jobnet",
-      prefix: "jobnet-",
-      rows: apifyRows.rows.filter((r) => r.slug.startsWith("jobnet-")),
-      ok: apifyRows.ok,
-    },
-  ];
+  const apifyBySource = splitApifySubSources(apifyParent);
 
-  const sources: SourceResult[] = [drushim, gotfriends, ...apifyBySource, greenhouseRows];
+  const sources: SourceResult[] = [
+    drushim,
+    gotfriends,
+    ...apifyBySource,
+    greenhouseRows,
+  ];
 
   const fetchedBySource: Record<string, number> = {};
   for (const source of sources) {

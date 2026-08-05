@@ -1,4 +1,5 @@
 import { sendJobSyncAlertEmail } from "@/lib/jobs/alerts";
+import type { SyncJobRow } from "@/lib/jobs/job-posting";
 import { createAdminClient, tryCreateAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 
@@ -10,6 +11,12 @@ export interface SourceHealthEntry {
 }
 
 export type SourceHealthMap = Record<string, SourceHealthEntry>;
+
+/** תוצאת fetch ממקור — fetchComplete=false מונע השבתה מיידית על partial sync */
+export interface SourceFetchResult {
+  rows: SyncJobRow[];
+  fetchComplete: boolean;
+}
 
 /** מקור שלא רץ על host זה (Vercel וכו') — לא failure ולא age-out */
 export class SourceSkippedError extends Error {
