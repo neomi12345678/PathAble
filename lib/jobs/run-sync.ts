@@ -21,6 +21,11 @@ import {
   SourceSkippedError,
 } from "@/lib/jobs/sync-health";
 import { verifyJobPage } from "@/lib/jobs/verify-job-page";
+import {
+  deactivateJobsBySlugs,
+  fetchJobTimestampsBySlugs,
+  findActiveJobsByDedupeKeys,
+} from "@/lib/jobs/sync-db-batch";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 
@@ -118,21 +123,7 @@ async function deactivateStaleForPrefix(
 
   if (staleSlugs.length === 0) return;
 
-  await deactivateBySlugs(staleSlugs);
-}
-
-async function deactivateBySlugs(slugs: string[]): Promise<void> {
-  if (slugs.length === 0) return;
-  const supabase = createAdminClient();
-  const chunkSize = 100;
-  for (let i = 0; i < slugs.length; i += chunkSize) {
-    const chunk = slugs.slice(i, i + chunkSize);
-    const { error } = await supabase
-      .from("jobs")
-      .update({ active: false })
-      .in("slug", chunk);
-    if (error) throw error;
-  }
+  await deactivateJobsBySlugs(staleSlugs);
 }
 
 async function deactivateDbDuplicatesByKey(winners: SyncJobRow[]): Promise<number> {
@@ -146,30 +137,18 @@ async function deactivateDbDuplicatesByKey(winners: SyncJobRow[]): Promise<numbe
   if (keys.length === 0) return 0;
 
   const winnerSlugs = new Set(winners.map((w) => w.slug));
-  const supabase = createAdminClient();
 
-  // PostgREST: .in עם רשימה ארוכה — מפצלים לבאטצ'ים
-  const chunkSize = 80;
+  const matches = await findActiveJobsByDedupeKeys(keys);
   const toDeactivate: string[] = [];
 
-  for (let i = 0; i < keys.length; i += chunkSize) {
-    const chunk = keys.slice(i, i + chunkSize);
-    const { data, error } = await supabase
-      .from("jobs")
-      .select("slug, dedupe_key")
-      .eq("active", true)
-      .in("dedupe_key", chunk);
-    if (error) throw error;
-
-    for (const row of data ?? []) {
-      if (!winnerSlugs.has(row.slug)) {
-        toDeactivate.push(row.slug);
-      }
+  for (const row of matches) {
+    if (!winnerSlugs.has(row.slug)) {
+      toDeactivate.push(row.slug);
     }
   }
 
   if (toDeactivate.length === 0) return 0;
-  await deactivateBySlugs(toDeactivate);
+  await deactivateJobsBySlugs(toDeactivate);
   logger.warn("Deactivated DB duplicates by dedupe_key", {
     count: toDeactivate.length,
   });
@@ -204,7 +183,7 @@ async function deactivateUnseenOlderThan(
 
   if (staleSlugs.length === 0) return 0;
 
-  await deactivateBySlugs(staleSlugs);
+  await deactivateJobsBySlugs(staleSlugs);
 
   logger.warn("Deactivated unseen jobs by age", {
     prefix,
@@ -220,27 +199,7 @@ async function upsertJobsWithTimestamps(rows: SyncJobRow[]): Promise<number> {
   const supabase = createAdminClient();
   const slugs = rows.map((r) => r.slug);
 
-  const existingMap = new Map<
-    string,
-    { firstSeen: string; createdAt: string }
-  >();
-  const chunkSize = 80;
-  for (let i = 0; i < slugs.length; i += chunkSize) {
-    const chunk = slugs.slice(i, i + chunkSize);
-    const { data: existing, error: selectErr } = await supabase
-      .from("jobs")
-      .select("slug, first_seen_at, created_at")
-      .in("slug", chunk);
-    if (selectErr) throw selectErr;
-    for (const e of existing ?? []) {
-      if (typeof e.first_seen_at === "string" && typeof e.created_at === "string") {
-        existingMap.set(e.slug, {
-          firstSeen: e.first_seen_at,
-          createdAt: e.created_at,
-        });
-      }
-    }
-  }
+  const existingMap = await fetchJobTimestampsBySlugs(slugs);
 
   const now = new Date().toISOString();
   let newCount = 0;
@@ -351,7 +310,7 @@ export async function runJobSync(): Promise<{
   const duplicateSlugs = findDuplicateSlugsToDeactivate(allRows, winners);
 
   const newJobs = await upsertJobsWithTimestamps(winners);
-  await deactivateBySlugs(duplicateSlugs);
+  await deactivateJobsBySlugs(duplicateSlugs);
   await deactivateDbDuplicatesByKey(winners);
 
   const total = winners.length;
