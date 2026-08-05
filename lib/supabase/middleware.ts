@@ -1,11 +1,35 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+
+function isOnboardingCompleteFromProfile(profile: {
+  onboarding_complete?: boolean | null;
+  disability_type?: string | null;
+} | null): boolean {
+  return (
+    profile?.onboarding_complete === true &&
+    typeof profile.disability_type === "string" &&
+    profile.disability_type.trim().length > 0
+  );
+}
+
+function isOnboardingCompleteFromMetadata(
+  metadata: Record<string, unknown> | undefined
+): boolean {
+  const disability = metadata?.disability_type;
+  return (
+    metadata?.onboarding_complete === true &&
+    typeof disability === "string" &&
+    disability.trim().length > 0
+  );
+}
 
 export async function updateSession(request: NextRequest): Promise<{
   response: NextResponse;
   user: { id: string; email?: string } | null;
   onboardingComplete: boolean;
+  dbOnboardingComplete: boolean;
   role: string;
 }> {
   let supabaseResponse = NextResponse.next({ request });
@@ -18,6 +42,7 @@ export async function updateSession(request: NextRequest): Promise<{
       response: supabaseResponse,
       user: null,
       onboardingComplete: false,
+      dbOnboardingComplete: false,
       role: "user",
     };
   }
@@ -43,36 +68,50 @@ export async function updateSession(request: NextRequest): Promise<{
     data: { user },
   } = await supabase.auth.getUser();
 
-  let onboardingComplete = false;
+  let dbOnboardingComplete = false;
   let role = "user";
 
   if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("onboarding_complete, disability_type, role")
-      .eq("id", user.id)
-      .maybeSingle();
+    const admin = tryCreateAdminClient();
+    if (admin) {
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("onboarding_complete, disability_type, role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      dbOnboardingComplete = isOnboardingCompleteFromProfile(profile);
+      role = profile?.role ?? role;
+    } else {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("onboarding_complete, disability_type, role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      dbOnboardingComplete = isOnboardingCompleteFromProfile(profile);
+      role = profile?.role ?? role;
+    }
 
     if (
-      profile?.onboarding_complete === true &&
-      typeof profile.disability_type === "string" &&
-      profile.disability_type.trim().length > 0
+      !dbOnboardingComplete &&
+      isOnboardingCompleteFromMetadata(
+        user.user_metadata as Record<string, unknown> | undefined
+      )
     ) {
-      onboardingComplete = true;
+      dbOnboardingComplete = true;
     }
-    role = profile?.role ?? role;
   }
 
   const onboardedCookie =
     request.cookies.get("pathable_onboarded")?.value === "1";
-  if (user && onboardedCookie) {
-    onboardingComplete = true;
-  }
+  const onboardingComplete = dbOnboardingComplete || onboardedCookie;
 
   return {
     response: supabaseResponse,
     user: user ? { id: user.id, email: user.email } : null,
     onboardingComplete,
+    dbOnboardingComplete,
     role,
   };
 }

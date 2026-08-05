@@ -39,7 +39,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const { response, user, onboardingComplete, role } =
+    const { response, user, onboardingComplete, dbOnboardingComplete, role } =
       await updateSession(request);
 
     const isPublicPath = PUBLIC_PATHS.some(
@@ -104,7 +104,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       }
     }
 
-    if (pathname.startsWith("/dashboard") && onboardingComplete) {
+    if (pathname.startsWith("/dashboard") && dbOnboardingComplete) {
       clearOnboardedCookie(response);
     }
 

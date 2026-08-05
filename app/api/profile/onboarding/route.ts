@@ -166,7 +166,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       httpOnly: true,
       sameSite: "lax",
       path: "/",
-      maxAge: 300,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 30,
     });
     return res;
 
