@@ -32,7 +32,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (!rate.ok) return rateLimitResponse(rate.retryAfterSec);
 
     const response = NextResponse.json({ data: { success: true } });
-    const supabase = createRouteHandlerClient(response);
+    const supabase = await createRouteHandlerClient(response);
     const origin = new URL(request.url).origin;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || origin;
 

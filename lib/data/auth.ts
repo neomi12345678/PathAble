@@ -1,7 +1,7 @@
 import { tryCreateClient } from "@/lib/supabase/server";
 
 export async function getAuthUser() {
-  const supabase = tryCreateClient();
+  const supabase = await tryCreateClient();
   if (!supabase) return null;
   const {
     data: { user },

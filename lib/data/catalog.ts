@@ -86,7 +86,7 @@ function mapJobRow(row: {
 }
 export async function getProfessionsFromDb(): Promise<Profession[]> {
   if (!isSupabaseConfigured()) return [];
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("professions")
     .select("*")
@@ -119,7 +119,7 @@ export async function getProfessionByIdFromDb(
   id: string
 ): Promise<Profession | null> {
   if (!isSupabaseConfigured()) return null;
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("professions")
     .select("*")
@@ -155,7 +155,7 @@ export async function getJobsFromDb(filters?: {
   void triggerJobSyncIfStale();
 
   // קריאה ציבורית — בלי cookies (לא תלוי session)
-  const supabase = tryCreateAdminClient() ?? createClient();
+  const supabase = tryCreateAdminClient() ?? (await createClient());
   let query = supabase.from("jobs").select("*").eq("active", true);
   if (filters?.city) query = query.eq("city", filters.city);
   if (filters?.work_from_home !== undefined)
@@ -173,7 +173,7 @@ export async function getJobsFromDb(filters?: {
 
 export async function getJobByIdFromDb(id: string): Promise<Job | null> {
   if (!isSupabaseConfigured()) return null;
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("jobs")
     .select("*")
@@ -208,7 +208,7 @@ export async function getSavedProfessionIdsFromDb(
   userId: string
 ): Promise<string[]> {
   if (!isSupabaseConfigured()) return [];
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("saved_professions")
     .select("profession_slug")
@@ -251,7 +251,7 @@ export async function setSavedProfessionInDb(
 
 export async function getSavedJobIdsFromDb(userId: string): Promise<string[]> {
   if (!isSupabaseConfigured()) return [];
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("saved_jobs")
     .select("job_slug")

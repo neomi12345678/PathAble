@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export function tryCreateClient(): SupabaseClient | null {
+export async function tryCreateClient(): Promise<SupabaseClient | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -10,7 +10,7 @@ export function tryCreateClient(): SupabaseClient | null {
     return null;
   }
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
 
   return createServerClient(url, anonKey, {
     cookies: {
@@ -30,8 +30,8 @@ export function tryCreateClient(): SupabaseClient | null {
   });
 }
 
-export function createClient(): SupabaseClient {
-  const client = tryCreateClient();
+export async function createClient(): Promise<SupabaseClient> {
+  const client = await tryCreateClient();
   if (!client) {
     throw new Error("Supabase is not configured");
   }

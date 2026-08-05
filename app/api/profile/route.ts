@@ -61,7 +61,7 @@ export async function DELETE(): Promise<NextResponse> {
 
     await deleteUserAccount(user.id);
 
-    const supabase = createClient();
+    const supabase = await createClient();
     await supabase.auth.signOut();
 
     return NextResponse.json({ ok: true });

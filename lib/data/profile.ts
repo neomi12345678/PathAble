@@ -206,7 +206,7 @@ export async function getProfileExtras(userId: string): Promise<{
 }
 
 export async function getCurrentProfile(): Promise<Profile | null> {
-  const supabase = tryCreateClient();
+  const supabase = await tryCreateClient();
   if (!supabase) return null;
   const {
     data: { user },

@@ -10,7 +10,7 @@ export interface SessionData {
 }
 
 export async function getSession(): Promise<SessionData | null> {
-  const supabase = tryCreateClient();
+  const supabase = await tryCreateClient();
   if (!supabase) return null;
 
   const {
@@ -51,7 +51,7 @@ export async function isAdmin(): Promise<boolean> {
 }
 
 export async function hasCompletedOnboardingAuth(): Promise<boolean> {
-  const supabase = tryCreateClient();
+  const supabase = await tryCreateClient();
   if (!supabase) return false;
 
   const {

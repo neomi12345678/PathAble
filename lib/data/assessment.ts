@@ -42,7 +42,7 @@ export function mapAssessmentError(message: string): string {
 export async function getAssessmentResultFromDb(
   userId: string
 ): Promise<AssessmentResult | null> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("assessment_results")
     .select("*")
@@ -102,7 +102,7 @@ export async function submitAssessmentToDb(
   userId: string,
   answers: Record<string, number>
 ): Promise<{ result: AssessmentResult; message: string }> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: profile } = await supabase
     .from("profiles")

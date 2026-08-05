@@ -9,7 +9,7 @@ import { getProfileByUserId, getProfilePrefsForUser } from "./profile";
 import { getProfessionsFromDb } from "./catalog";
 
 async function getOrCreateSession(userId: string): Promise<string> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: existing } = await supabase
     .from("chat_sessions")
     .select("id")
@@ -32,7 +32,7 @@ async function getOrCreateSession(userId: string): Promise<string> {
 export async function getChatMessagesFromDb(
   userId: string
 ): Promise<ChatMessage[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const sessionId = await getOrCreateSession(userId);
   const { data, error } = await supabase
     .from("chat_messages")
@@ -163,7 +163,7 @@ export async function sendChatMessageFromDb(
   userId: string,
   message: string
 ): Promise<ChatMessage> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const sessionId = await getOrCreateSession(userId);
 
   await supabase.from("chat_messages").insert({
