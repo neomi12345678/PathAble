@@ -13,7 +13,20 @@ export function getClientIp(request: Request): string {
     const first = forwarded.split(",")[0]?.trim();
     if (first) return first;
   }
-  return request.headers.get("x-real-ip")?.trim() ?? "unknown";
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+  return "unknown";
+}
+
+/** Per-user keys avoid blocking all traffic when IP is shared (Vercel, classroom Wi‑Fi). */
+export function authRateLimitKey(
+  action: "login" | "register",
+  email: string,
+  request: Request
+): string {
+  const normalized = email.trim().toLowerCase();
+  const ip = getClientIp(request);
+  return `${action}:${normalized}:${ip}`;
 }
 
 export function checkRateLimit(

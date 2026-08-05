@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
+import {
+  authRateLimitKey,
+  checkRateLimit,
+  rateLimitResponse,
+} from "@/lib/rate-limit";
 import { createRouteHandlerClient } from "@/lib/supabase/route-handler";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 
 const loginSchema = z.object({
@@ -16,6 +21,29 @@ function mapLoginError(message: string): string {
   return "אימייל או סיסמה שגויים";
 }
 
+async function tryConfirmUnverifiedEmail(
+  email: string
+): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (!profile?.id) return false;
+
+    const { error } = await admin.auth.admin.updateUserById(profile.id, {
+      email_confirm: true,
+    });
+    return !error;
+  } catch (confirmError) {
+    logger.error("Auto email confirm failed", { error: String(confirmError) });
+    return false;
+  }
+}
+
 export async function POST(request: Request): Promise<NextResponse> {
   try {
     const body = await request.json();
@@ -28,15 +56,29 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const { email, password } = result.data;
 
-    const rate = checkRateLimit(`login:${getClientIp(request)}`, 10, 60_000);
+    const rate = checkRateLimit(
+      authRateLimitKey("login", email, request),
+      15,
+      60_000
+    );
     if (!rate.ok) return rateLimitResponse(rate.retryAfterSec);
 
     const response = NextResponse.json({ data: { success: true } });
     const supabase = createRouteHandlerClient(response);
-    const { error } = await supabase.auth.signInWithPassword({
+    let { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+
+    if (error?.message.toLowerCase().includes("email not confirmed")) {
+      const confirmed = await tryConfirmUnverifiedEmail(email);
+      if (confirmed) {
+        ({ error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        }));
+      }
+    }
 
     if (error) {
       return NextResponse.json(

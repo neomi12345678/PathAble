@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
+import {
+  authRateLimitKey,
+  checkRateLimit,
+  rateLimitResponse,
+} from "@/lib/rate-limit";
 import { createRouteHandlerClient } from "@/lib/supabase/route-handler";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
@@ -35,7 +39,11 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const { email, password, fullName, interests } = parsed.data;
 
-    const rate = checkRateLimit(`register:${getClientIp(request)}`, 5, 60 * 60_000);
+    const rate = checkRateLimit(
+      authRateLimitKey("register", email, request),
+      8,
+      60 * 60_000
+    );
     if (!rate.ok) return rateLimitResponse(rate.retryAfterSec);
 
     const parts = fullName?.trim().split(/\s+/) ?? [];
@@ -58,22 +66,6 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
-    const response = NextResponse.json({
-      data: { success: true, welcomeEmailSent: false },
-    });
-    const supabase = createRouteHandlerClient(response);
-
-    const { error: loginError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (loginError) {
-      logger.error("Register login after create failed", {
-        error: loginError.message,
-      });
-    }
-
     const profileUpdate: {
       first_name?: string;
       last_name?: string;
@@ -89,10 +81,16 @@ export async function POST(request: Request): Promise<NextResponse> {
       profileUpdate.interests = interests;
     }
 
-    await admin
+    const { error: profileError } = await admin
       .from("profiles")
       .update(profileUpdate)
       .eq("id", created.user.id);
+
+    if (profileError) {
+      logger.warn("Register profile update failed", {
+        error: profileError.message,
+      });
+    }
 
     const welcomeResult = await sendWelcomeEmail(email, firstName);
     if (!welcomeResult.sent) {
@@ -102,18 +100,34 @@ export async function POST(request: Request): Promise<NextResponse> {
       });
     }
 
-    const finalResponse = NextResponse.json({
+    const response = NextResponse.json({
       data: {
         success: true,
         welcomeEmailSent: welcomeResult.sent,
         welcomeEmailError: welcomeResult.error ?? null,
       },
     });
-    response.cookies.getAll().forEach((cookie) => {
-      finalResponse.cookies.set(cookie.name, cookie.value, cookie);
+    const supabase = createRouteHandlerClient(response);
+
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     });
 
-    return finalResponse;
+    if (loginError) {
+      logger.error("Register login after create failed", {
+        error: loginError.message,
+      });
+      return NextResponse.json(
+        {
+          error:
+            "החשבון נוצר אך ההתחברות האוטומטית נכשלה — נסו להתחבר עם האימייל והסיסמה",
+        },
+        { status: 500 }
+      );
+    }
+
+    return response;
   } catch (error) {
     logger.error("Register failed", { error: String(error) });
     return NextResponse.json({ error: "שגיאה פנימית" }, { status: 500 });
