@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import {
   ensureSyncLockForCron,
@@ -9,7 +10,8 @@ import { shouldSkipScheduledSync } from "@/lib/jobs/sync-health";
 import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
+/** Hobby ~10s; sync מלא רץ מ-GitHub Actions */
+export const maxDuration = 60;
 
 function getCronSecret(): string | null {
   return process.env.CRON_SECRET?.trim() ?? null;
@@ -34,8 +36,10 @@ function isVercelCronRequest(request: Request): boolean {
 
 function isAuthorized(request: Request): boolean {
   const secret = getCronSecret();
-  if (!secret) return false;
-  return getBearerToken(request) === secret;
+  const token = getBearerToken(request);
+  if (!secret || !token) return false;
+  if (secret.length !== token.length) return false;
+  return timingSafeEqual(Buffer.from(secret), Buffer.from(token));
 }
 
 /**

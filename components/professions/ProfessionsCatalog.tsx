@@ -5,52 +5,21 @@ import toast from "react-hot-toast";
 import type { Profession } from "@/types";
 import { ProfessionCard } from "@/components/professions/ProfessionCard";
 import { getProfessionMatchScore, professionMatchesDiagnosis } from "@/lib/disability-matching";
+import {
+  getJobCategoryLabel,
+  JOB_CATEGORY_IDS,
+  type JobCategoryId,
+} from "@/lib/jobs/job-categories";
 import { useUserProfile } from "@/hooks/useUserProfile";
 
 const PAGE_SIZE = 9;
 
-const CATEGORY_BY_ID: Record<string, string> = {
-  "prof-001": "טכנולוגיה ודיגיטל",
-  "prof-004": "טכנולוגיה ודיגיטל",
-  "prof-005": "טכנולוגיה ודיגיטל",
-  "prof-010": "טכנולוגיה ודיגיטל",
-  "prof-012": "טכנולוגיה ודיגיטל",
-  "prof-002": "עיצוב ויצירה",
-  "prof-006": "עיצוב ויצירה",
-  "prof-007": "עיצוב ויצירה",
-  "prof-013": "עיצוב ויצירה",
-  "prof-014": "עיצוב ויצירה",
-  "prof-003": "מנהלה ופיננסים",
-  "prof-008": "מנהלה ופיננסים",
-  "prof-009": "חינוך וקהילה",
-  "prof-011": "חינוך וקהילה",
-  "prof-015": "מקצועות יד",
-  "prof-016": "טכנולוגיה ודיגיטל",
-  "prof-018": "טכנולוגיה ודיגיטל",
-  "prof-025": "טכנולוגיה ודיגיטל",
-  "prof-017": "עיצוב ויצירה",
-  "prof-019": "עיצוב ויצירה",
-  "prof-026": "עיצוב ויצירה",
-  "prof-020": "מנהלה ופיננסים",
-  "prof-024": "מנהלה ופיננסים",
-  "prof-021": "חינוך וקהילה",
-  "prof-022": "חינוך וקהילה",
-  "prof-023": "מקצועות יד",
-  "prof-027": "מקצועות יד",
-};
-
-const CATEGORIES = [
-  "טכנולוגיה ודיגיטל",
-  "עיצוב ויצירה",
-  "מנהלה ופיננסים",
-  "חינוך וקהילה",
-  "מקצועות יד",
-];
+const CATEGORY_FILTER_IDS = JOB_CATEGORY_IDS.filter((id) => id !== "other");
 
 type SortKey = "match" | "salary" | "demand";
 
-function getCategory(id: string): string {
-  return CATEGORY_BY_ID[id] ?? "אחר";
+function getProfessionCategoryLabel(profession: Profession): string {
+  return getJobCategoryLabel(profession.category);
 }
 
 function getSalaryAvg(range: string): number {
@@ -104,7 +73,7 @@ export function ProfessionsCatalog({
       toast.error("שגיאה בשמירת המקצוע");
     }
   };
-  const [activeCategories, setActiveCategories] = useState<Set<string>>(
+  const [activeCategories, setActiveCategories] = useState<Set<JobCategoryId>>(
     new Set()
   );
   const [minMatch, setMinMatch] = useState(0);
@@ -124,7 +93,8 @@ export function ProfessionsCatalog({
         match: getProfessionMatchScore(p, diagnosis, autismLevel),
         salary: getSalaryAvg(p.salary_range),
         demand: getDemandScore(p),
-        category: getCategory(p.id),
+        category: p.category as JobCategoryId,
+        categoryLabel: getProfessionCategoryLabel(p),
         fitsDiagnosis: professionMatchesDiagnosis(p, diagnosis),
       }))
       .filter((item) => {
@@ -165,7 +135,7 @@ export function ProfessionsCatalog({
     currentPage * PAGE_SIZE
   );
 
-  const toggleCategory = (cat: string): void => {
+  const toggleCategory = (cat: JobCategoryId): void => {
     setActiveCategories((prev) => {
       const next = new Set(prev);
       if (next.has(cat)) next.delete(cat);
@@ -204,7 +174,7 @@ export function ProfessionsCatalog({
               <>
                 כדי לדרג התאמה אישית,{" "}
                 <a
-                  href="/onboarding?update"
+                  href="/onboarding?update=1"
                   className="font-black text-primary underline-offset-2 hover:underline"
                 >
                   השלימו את האבחנה
@@ -313,18 +283,18 @@ export function ProfessionsCatalog({
                 תחומי עניין
               </p>
               <div className="space-y-4">
-                {CATEGORIES.map((cat) => (
+                {CATEGORY_FILTER_IDS.map((catId) => (
                   <label
-                    key={cat}
+                    key={catId}
                     className="group flex cursor-pointer flex-row-reverse items-center justify-end gap-3"
                   >
                     <span className="font-bold text-on-surface/80 transition-colors group-hover:text-primary-container">
-                      {cat}
+                      {getJobCategoryLabel(catId)}
                     </span>
                     <input
                       type="checkbox"
-                      checked={activeCategories.has(cat)}
-                      onChange={() => toggleCategory(cat)}
+                      checked={activeCategories.has(catId)}
+                      onChange={() => toggleCategory(catId)}
                       className="h-5 w-5 rounded-md border-outline-variant text-primary-container focus:ring-primary-container/20"
                     />
                   </label>
@@ -400,7 +370,7 @@ export function ProfessionsCatalog({
                   key={item.profession.id}
                   profession={item.profession}
                   isSaved={saved.has(item.profession.id)}
-                  match={item.match}
+                  match={diagnosis ? item.match : undefined}
                   diagnosisLabel={diagnosisLabel}
                   onToggleSave={(id, next) => void toggleSave(id, next)}
                 />

@@ -8,6 +8,8 @@
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 import { createAdminClient } from "../lib/supabase/admin";
+import { inferJobCategory } from "../lib/jobs/job-categories";
+import { PROFESSION_CATEGORY_BY_ID } from "./seed-data/profession-categories";
 import { mockProfessions } from "./seed-data/professions";
 import { mockQuestions } from "./seed-data/questions";
 import { mockLearningModules } from "./seed-data/learning";
@@ -40,6 +42,10 @@ async function seed(): Promise<void> {
       disability_fit: p.disability_fit,
       video_url: p.video_url,
       active: p.active,
+      category:
+        p.category ??
+        PROFESSION_CATEGORY_BY_ID[p.id] ??
+        inferJobCategory(p.name, p.description),
     })),
     { onConflict: "slug" }
   );

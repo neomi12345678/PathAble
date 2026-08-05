@@ -3,6 +3,7 @@ import { getChatMessages, sendChatMessage } from "@/lib/data";
 import { getAuthUser } from "@/lib/data/auth";
 import { awardBadge, BADGES } from "@/lib/data/achievements";
 import { logger } from "@/lib/logger";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { chatMessageSchema, parseBody } from "@/utils/validation";
 
 export async function GET(): Promise<NextResponse> {
@@ -33,6 +34,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     if ("error" in parsed) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+
+    const rate = checkRateLimit(`chat:${user.id}`, 30, 60 * 60_000);
+    if (!rate.ok) return rateLimitResponse(rate.retryAfterSec);
 
     const response = await sendChatMessage(parsed.data.message);
     await awardBadge(user.id, BADGES.firstChat);

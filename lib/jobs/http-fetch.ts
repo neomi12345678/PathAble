@@ -13,10 +13,28 @@ export interface FetchPageResult {
   errorDetail?: string;
 }
 
+const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+
+const ALLOWED_HOST_SUFFIXES = [
+  "drushim.co.il",
+  "www.drushim.co.il",
+  "gotfriends.co.il",
+  "www.gotfriends.co.il",
+  "greenhouse.io",
+  "boards.greenhouse.io",
+  "alljobs.co.il",
+  "www.alljobs.co.il",
+  "jobmaster.co.il",
+  "www.jobmaster.co.il",
+  "jobnet.co.il",
+  "www.jobnet.co.il",
+  "api.apify.com",
+] as const;
+
 const UNAVAILABLE_PATTERNS = [
   /המשרה\s+(?:אינ|לא)\s+(?:זמינ|קיימ)/u,
   /המשרה\s+הוסר/u,
-  /לא\s+נמצא/u,
+  /(?:^|[\s>])404[\s<]|page\s+not\s+found/i,
   /job\s+(?:is\s+)?(?:no longer|not)\s+(?:available|active|open)/i,
   /position\s+(?:has been|is)\s+(?:filled|closed)/i,
   /this\s+job\s+(?:is\s+)?(?:closed|expired)/i,
@@ -39,11 +57,72 @@ export const GOTFRIENDS_BROWSER_HEADERS: Record<string, string> = {
   "Cache-Control": "no-cache",
 };
 
+function isPrivateOrLocalHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  if (h === "localhost" || h.endsWith(".local") || h.endsWith(".internal")) {
+    return true;
+  }
+  if (h === "0.0.0.0" || h.startsWith("127.") || h.startsWith("10.")) {
+    return true;
+  }
+  if (h.startsWith("192.168.") || h.startsWith("169.254.")) {
+    return true;
+  }
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return true;
+  if (h.includes(":")) return true;
+  return false;
+}
+
+function isAllowedFetchHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  return ALLOWED_HOST_SUFFIXES.some((suffix) => h === suffix || h.endsWith(`.${suffix}`));
+}
+
+function assertSafeFetchUrl(url: string): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error("invalid_url");
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error("non_https");
+  }
+  if (isPrivateOrLocalHost(parsed.hostname)) {
+    throw new Error("blocked_host");
+  }
+  if (!isAllowedFetchHost(parsed.hostname)) {
+    throw new Error("host_not_allowed");
+  }
+  return parsed;
+}
+
+async function readResponseTextLimited(res: Response): Promise<string> {
+  const buf = await res.arrayBuffer();
+  if (buf.byteLength > MAX_RESPONSE_BYTES) {
+    throw new Error("response_too_large");
+  }
+  return new TextDecoder("utf-8", { fatal: false }).decode(buf);
+}
+
 export async function fetchJobPage(
   url: string,
   options?: FetchPageOptions,
   redirectDepth = 0
 ): Promise<FetchPageResult> {
+  try {
+    assertSafeFetchUrl(url);
+  } catch (err) {
+    return {
+      ok: false,
+      status: 0,
+      finalUrl: url,
+      html: "",
+      reason: "fetch_error",
+      errorDetail: err instanceof Error ? err.message : "invalid_url",
+    };
+  }
+
   const headers = {
     "User-Agent": USER_AGENT,
     Accept: "text/html",
@@ -115,7 +194,7 @@ export async function fetchJobPage(
       };
     }
 
-    const html = await res.text();
+    const html = await readResponseTextLimited(res);
     const finalUrl = res.url || url;
 
     if (UNAVAILABLE_PATTERNS.some((p) => p.test(html))) {

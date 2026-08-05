@@ -11,6 +11,14 @@ export interface SourceHealthEntry {
 
 export type SourceHealthMap = Record<string, SourceHealthEntry>;
 
+/** מקור שלא רץ על host זה (Vercel וכו') — לא failure ולא age-out */
+export class SourceSkippedError extends Error {
+  constructor(public readonly source: string) {
+    super(`Source skipped on this host: ${source}`);
+    this.name = "SourceSkippedError";
+  }
+}
+
 export async function recordSourceSuccess(source: string, count: number): Promise<void> {
   const supabase = tryCreateAdminClient();
   if (!supabase) return;
@@ -215,37 +223,13 @@ export async function acquireSyncLockAtomic(): Promise<boolean> {
   });
 
   if (error) {
-    logger.warn("acquire_job_sync_lock RPC failed — fallback", {
+    logger.error("acquire_job_sync_lock RPC failed — skipping sync", {
       error: error.message,
     });
-    return acquireSyncLockFallback();
+    return false;
   }
 
   return Boolean(data);
-}
-
-async function acquireSyncLockFallback(): Promise<boolean> {
-  const supabase = createAdminClient();
-  const { data } = await supabase
-    .from("job_sync_meta")
-    .select("sync_in_progress, sync_started_at")
-    .eq("id", 1)
-    .maybeSingle();
-
-  if (data?.sync_in_progress && data.sync_started_at) {
-    const started = new Date(data.sync_started_at).getTime();
-    if (Date.now() - started < 25 * 60_000) return false;
-  }
-
-  const { error } = await supabase
-    .from("job_sync_meta")
-    .update({
-      sync_in_progress: true,
-      sync_started_at: new Date().toISOString(),
-    })
-    .eq("id", 1);
-
-  return !error;
 }
 
 export async function getAdaptiveStaleMs(): Promise<number> {

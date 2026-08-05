@@ -11,6 +11,22 @@ import {
   DIAGNOSIS_FILTER_MIN_SCORE,
 } from "@/lib/disability-matching";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import {
+  getJobCategoryLabel,
+  JOB_CATEGORY_IDS,
+  type JobCategoryId,
+} from "@/lib/jobs/job-categories";
+import {
+  SUPPORT_LEVELS,
+  SUPPORT_LEVEL_TOOLTIP,
+  type SupportLevel,
+} from "@/lib/jobs/support-level";
+import {
+  getWorkModeLabel,
+  type WorkMode,
+} from "@/lib/jobs/job-details-extract";
+import { SupportLevelBadge } from "@/components/jobs/SupportLevelBadge";
+import { SaveJobButton } from "@/components/jobs/SaveJobButton";
 import { JOBS } from "@/utils/texts";
 
 const PAGE_SIZE = 50;
@@ -62,10 +78,12 @@ function buildPageItems(current: number, total: number): Array<number | "ellipsi
 
 export function JobsBoard({
   jobs: initialJobs,
+  savedJobIds = [],
   lastSyncedAt = null,
   syncInProgress = false,
 }: {
   jobs: Job[];
+  savedJobIds?: string[];
   lastSyncedAt?: string | null;
   syncInProgress?: boolean;
 }) {
@@ -73,11 +91,20 @@ export function JobsBoard({
     useUserProfile();
   const [search, setSearch] = useState("");
   const [onlyRemote, setOnlyRemote] = useState(false);
+  const [onlyFlexibleHours, setOnlyFlexibleHours] = useState(false);
+  const [workModeFilter, setWorkModeFilter] = useState<WorkMode | "all">("all");
   const [onlyLowSocial, setOnlyLowSocial] = useState(false);
   const [onlyWithSupport, setOnlyWithSupport] = useState(false);
   const [onlyMyDiagnosis, setOnlyMyDiagnosis] = useState(false);
   const [onlyMyArea, setOnlyMyArea] = useState(false);
   const [scope, setScope] = useState("all");
+  const [selectedCategories, setSelectedCategories] = useState<JobCategoryId[]>(
+    []
+  );
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [supportLevelFilter, setSupportLevelFilter] = useState<
+    SupportLevel | "all"
+  >("all");
   const [page, setPage] = useState(1);
 
   const jobs = useMemo(
@@ -94,6 +121,18 @@ export function JobsBoard({
     const q = search.trim().toLowerCase();
     return jobs.filter((job) => {
       if (onlyRemote && !job.work_from_home) return false;
+      if (
+        onlyFlexibleHours &&
+        !job.structured_details.flexibleHours
+      ) {
+        return false;
+      }
+      if (
+        workModeFilter !== "all" &&
+        job.structured_details.workMode !== workModeFilter
+      ) {
+        return false;
+      }
       if (onlyLowSocial && job.social_interaction_level !== "נמוך") return false;
       if (onlyWithSupport && job.support_features.length === 0) return false;
 
@@ -115,6 +154,21 @@ export function JobsBoard({
       }
 
       if (scope !== "all" && job.scope !== scope) return false;
+
+      if (
+        selectedCategories.length > 0 &&
+        !selectedCategories.includes(job.category as JobCategoryId)
+      ) {
+        return false;
+      }
+
+      if (
+        supportLevelFilter !== "all" &&
+        job.support_level !== supportLevelFilter
+      ) {
+        return false;
+      }
+
       if (q) {
         const haystack =
           `${job.title} ${job.company} ${job.city} ${job.description} ${job.autism_match_reason} ${job.support_features.join(" ")}`.toLowerCase();
@@ -126,11 +180,15 @@ export function JobsBoard({
     jobs,
     search,
     onlyRemote,
+    onlyFlexibleHours,
+    workModeFilter,
     onlyLowSocial,
     onlyWithSupport,
     onlyMyDiagnosis,
     onlyMyArea,
     scope,
+    selectedCategories,
+    supportLevelFilter,
     diagnosis,
     autismLevel,
     city,
@@ -144,11 +202,15 @@ export function JobsBoard({
   }, [
     search,
     onlyRemote,
+    onlyFlexibleHours,
+    workModeFilter,
     onlyLowSocial,
     onlyWithSupport,
     onlyMyDiagnosis,
     onlyMyArea,
     scope,
+    selectedCategories,
+    supportLevelFilter,
   ]);
 
   useEffect(() => {
@@ -177,11 +239,15 @@ export function JobsBoard({
   const clearFilters = (): void => {
     setSearch("");
     setOnlyRemote(false);
+    setOnlyFlexibleHours(false);
+    setWorkModeFilter("all");
     setOnlyLowSocial(false);
     setOnlyWithSupport(false);
     setOnlyMyDiagnosis(false);
     setOnlyMyArea(false);
     setScope("all");
+    setSelectedCategories([]);
+    setSupportLevelFilter("all");
     setPage(1);
   };
 
@@ -224,7 +290,7 @@ export function JobsBoard({
               <>
                 כדי לקבל דירוג התאמה אישי,{" "}
                 <a
-                  href="/onboarding?update"
+                  href="/onboarding?update=1"
                   className="font-black text-primary underline-offset-2 hover:underline"
                 >
                   השלימו את האבחנה בפרופיל
@@ -277,6 +343,107 @@ export function JobsBoard({
                 </option>
               ))}
             </select>
+            <select
+              value={workModeFilter}
+              onChange={(e) => {
+                const v = e.target.value;
+                setWorkModeFilter(v === "all" ? "all" : (v as WorkMode));
+                setPage(1);
+              }}
+              aria-label={JOBS.workModeAll}
+              className="h-10 cursor-pointer rounded-xl border border-outline-variant/40 bg-white/70 px-3 text-xs font-bold text-on-surface focus:border-primary focus:ring-0"
+            >
+              <option value="all">{JOBS.workModeAll}</option>
+              <option value="remote">{JOBS.workModeRemote}</option>
+              <option value="hybrid">{JOBS.workModeHybrid}</option>
+              <option value="office">{JOBS.workModeOffice}</option>
+            </select>
+            <select
+              value={supportLevelFilter}
+              onChange={(e) => {
+                const v = e.target.value;
+                setSupportLevelFilter(
+                  v === "all" ? "all" : (v as SupportLevel)
+                );
+                setPage(1);
+              }}
+              aria-label="רמת מבניות ותמיכה בתפקיד"
+              title={SUPPORT_LEVEL_TOOLTIP}
+              className="h-10 max-w-[11rem] cursor-pointer rounded-xl border border-outline-variant/40 bg-white/70 px-3 text-xs font-bold text-on-surface focus:border-primary focus:ring-0"
+            >
+              <option value="all">כל רמות המבניות</option>
+              {SUPPORT_LEVELS.map((level) => (
+                <option key={level} value={level}>
+                  {level === "structured"
+                    ? "מובנה מאוד"
+                    : level === "moderate"
+                      ? "בינוני"
+                      : "עצמאי"}
+                </option>
+              ))}
+            </select>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setCategoriesOpen((v) => !v)}
+                aria-expanded={categoriesOpen}
+                aria-haspopup="listbox"
+                className={`flex h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all ${
+                  selectedCategories.length > 0
+                    ? "bg-violet-100 text-violet-800 shadow-md"
+                    : "border border-outline-variant/40 bg-white/70 text-on-surface-variant hover:border-violet-400"
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">category</span>
+                {selectedCategories.length > 0
+                  ? `${selectedCategories.length} תחומים`
+                  : "כל התחומים"}
+              </button>
+              {categoriesOpen && (
+                <div
+                  role="listbox"
+                  aria-label="סינון לפי תחום"
+                  className="absolute left-0 top-full z-20 mt-2 max-h-64 w-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+                >
+                  {JOB_CATEGORY_IDS.filter((id) => id !== "other").map((id) => {
+                    const checked = selectedCategories.includes(id);
+                    return (
+                      <label
+                        key={id}
+                        className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-xs font-bold hover:bg-slate-50"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setSelectedCategories((prev) =>
+                              checked
+                                ? prev.filter((c) => c !== id)
+                                : [...prev, id]
+                            );
+                            setPage(1);
+                          }}
+                          className="rounded border-slate-300 text-primary focus:ring-primary"
+                        />
+                        {getJobCategoryLabel(id)}
+                      </label>
+                    );
+                  })}
+                  {selectedCategories.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategories([]);
+                        setPage(1);
+                      }}
+                      className="mt-1 w-full rounded-lg px-2 py-2 text-xs font-bold text-primary hover:bg-primary/5"
+                    >
+                      נקה תחומים
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => setOnlyMyDiagnosis((v) => !v)}
@@ -333,6 +500,19 @@ export function JobsBoard({
             </button>
             <button
               type="button"
+              onClick={() => setOnlyFlexibleHours((v) => !v)}
+              aria-pressed={onlyFlexibleHours}
+              className={`flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-colors ${
+                onlyFlexibleHours
+                  ? "bg-indigo-100 text-indigo-800"
+                  : "border border-outline-variant/40 bg-white/70 text-on-surface-variant hover:border-indigo-400"
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">schedule</span>
+              {JOBS.onlyFlexibleHours}
+            </button>
+            <button
+              type="button"
               onClick={() => setOnlyWithSupport((v) => !v)}
               aria-pressed={onlyWithSupport}
               className={`flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all ${
@@ -379,18 +559,24 @@ export function JobsBoard({
               return (
                 <article
                   key={job.id}
-                  className="group flex flex-col rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/10"
+                  className="group flex flex-col rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
                 >
                   <div className="mb-3 flex items-start justify-between gap-2">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-primary-container/10 font-display text-sm font-black text-primary">
                       {companyInitials(job.company)}
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-black ${matchBadgeClass(matchScore)}`}
-                      >
-                        {matchScore}% {JOBS.matchLabel}
-                      </span>
+                      {diagnosis ? (
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-black ${matchBadgeClass(matchScore)}`}
+                        >
+                          {matchScore}% {JOBS.matchLabel}
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-outline">
+                          השלם/י onboarding לציון התאמה
+                        </span>
+                      )}
                       <span className="rounded-full bg-slate-50 px-3 py-1 text-[11px] font-bold text-outline">
                         {timeAgo(job.created_at)}
                       </span>
@@ -405,6 +591,10 @@ export function JobsBoard({
                   </p>
 
                   <div className="mb-4 flex flex-wrap gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-bold text-violet-800">
+                      {getJobCategoryLabel(job.category)}
+                    </span>
+                    <SupportLevelBadge level={job.support_level} />
                     <span className="inline-flex items-center gap-1 rounded-full bg-primary/5 px-2.5 py-1 text-[11px] font-bold text-primary">
                       <span className="material-symbols-outlined text-sm">
                         {SCOPE_ICONS[job.scope] ?? "work"}
@@ -417,6 +607,22 @@ export function JobsBoard({
                           home_work
                         </span>
                         {JOBS.workFromHome}
+                      </span>
+                    )}
+                    {job.structured_details.workMode !== "unknown" && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-bold text-sky-800">
+                        <span className="material-symbols-outlined text-sm">
+                          location_on
+                        </span>
+                        {getWorkModeLabel(job.structured_details.workMode)}
+                      </span>
+                    )}
+                    {job.structured_details.flexibleHours && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-800">
+                        <span className="material-symbols-outlined text-sm">
+                          schedule
+                        </span>
+                        {JOBS.flexibleHoursYes}
                       </span>
                     )}
                     {fitTags.map((tag) => (
@@ -436,10 +642,15 @@ export function JobsBoard({
                           ? job.salary
                           : "שכר לא צוין"}
                       </span>
+                      <SaveJobButton
+                        jobId={job.id}
+                        initialSaved={savedJobIds.includes(job.id)}
+                        compact
+                      />
                     </div>
                     <Link
                       href={`/dashboard/jobs/${job.id}`}
-                      className="flex items-center justify-center gap-1 rounded-2xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-primary/20 transition-all hover:brightness-110 active:scale-95"
+                      className="flex items-center justify-center gap-1 rounded-2xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-primary/20 transition-colors hover:brightness-110"
                     >
                       {JOBS.apply}
                       <span className="material-symbols-outlined text-base">
@@ -538,7 +749,7 @@ export function JobsBoard({
           <button
             type="button"
             onClick={clearFilters}
-            className="mt-2 rounded-2xl bg-primary px-8 py-3 text-sm font-black text-white shadow-lg transition-all hover:brightness-110 active:scale-95"
+            className="mt-2 rounded-2xl bg-primary px-8 py-3 text-sm font-black text-white shadow-lg transition-colors hover:brightness-110"
           >
             {JOBS.clearFilters}
           </button>

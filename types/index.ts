@@ -63,7 +63,10 @@ export interface Profession {
   disability_fit: string[];
   video_url: string | null;
   active: boolean;
+  category: string;
 }
+
+import type { JobStructuredDetails } from "@/lib/jobs/job-details-extract";
 
 export interface Job {
   id: string;
@@ -87,6 +90,12 @@ export interface Job {
   /** לאילו אבחנות המשרה מתאימה */
   disability_fit: string[];
   profession_id?: string;
+  /** תחום עיסוק — לסינון בלוח */
+  category: string;
+  /** רמת מבניות ותמיכה בתפקיד — מנותח מטקסט המשרה */
+  support_level: string;
+  /** פרטים מובנים שחולצו מתיאור המשרה */
+  structured_details: JobStructuredDetails;
 }
 
 export interface LearningModule {

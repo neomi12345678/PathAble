@@ -6,6 +6,7 @@ import {
   getProfessionsFromDb,
   getQuestionsFromDb,
   getSavedProfessionIdsFromDb,
+  getSavedJobIdsFromDb,
 } from "./catalog";
 import {
   getLearningModuleByIdFromDb,
@@ -140,6 +141,12 @@ export async function getSavedProfessionIds() {
   const user = await getAuthUser();
   if (!user) return [];
   return getSavedProfessionIdsFromDb(user.id);
+}
+
+export async function getSavedJobIds() {
+  const user = await getAuthUser();
+  if (!user) return [];
+  return getSavedJobIdsFromDb(user.id);
 }
 
 export async function getUserProgress() {

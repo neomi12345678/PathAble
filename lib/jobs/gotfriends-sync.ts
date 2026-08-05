@@ -12,6 +12,7 @@ import {
   type SyncJobRow,
 } from "@/lib/jobs/job-posting";
 import { verifyJobPage } from "@/lib/jobs/verify-job-page";
+import { SourceSkippedError } from "@/lib/jobs/sync-health";
 import { logger } from "@/lib/logger";
 
 function enrichGotFriendsPosting(html: string, posting: JobPostingJson): JobPostingJson {
@@ -182,7 +183,7 @@ export async function syncGotFriendsJobs(): Promise<SyncJobRow[]> {
   // Vercel נחסם ב-403 — GotFriends מתעדכן מ-GitHub Actions בלבד
   if (process.env.VERCEL === "1") {
     logger.warn("GotFriends direct sync skipped on Vercel (use GitHub Actions)");
-    return [];
+    throw new SourceSkippedError("gotfriends");
   }
 
   const urls = await collectGotFriendsJobUrls();

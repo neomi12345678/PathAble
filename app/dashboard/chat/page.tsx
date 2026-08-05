@@ -8,7 +8,13 @@ import {
   getSavedProfessionIds,
   getUserProgress,
 } from "@/lib/data";
-import { professionMatchesDiagnosis } from "@/lib/disability-matching";
+import {
+  DIAGNOSIS_FILTER_MIN_SCORE,
+  getJobMatchScore,
+  jobMatchesDiagnosis,
+  professionMatchesDiagnosis,
+} from "@/lib/disability-matching";
+import { getUserProfilePrefsAsync } from "@/lib/user-profile.server";
 import { CHAT } from "@/utils/texts";
 
 export const metadata: Metadata = {
@@ -17,9 +23,10 @@ export const metadata: Metadata = {
 };
 
 export default async function ChatPage() {
-  const [profile, assessment, savedIds, progress, professions, jobs] =
+  const [profile, prefs, assessment, savedIds, progress, professions, jobs] =
     await Promise.all([
       getProfile(),
+      getUserProfilePrefsAsync(),
       getAssessmentResult(),
       getSavedProfessionIds(),
       getUserProgress(),
@@ -27,10 +34,10 @@ export default async function ChatPage() {
       getJobs(),
     ]);
 
-  const diagnosis = profile?.disability_type ?? "";
+  const diagnosis = prefs?.disability_type?.trim() ?? profile?.disability_type?.trim() ?? "";
 
   let completionPercent = 0;
-  if (profile?.disability_type) completionPercent += 25;
+  if (prefs?.onboardingComplete) completionPercent += 25;
   if (assessment?.summary) completionPercent += 25;
   if (progress.length > 0) completionPercent += 25;
   if (savedIds.length > 0) completionPercent += 25;
@@ -39,7 +46,19 @@ export default async function ChatPage() {
     ? professions.filter((p) => professionMatchesDiagnosis(p, diagnosis)).length
     : professions.length;
   const matchingJobs = diagnosis
-    ? jobs.filter((j) => j.disability_fit.includes(diagnosis)).length
+    ? jobs.filter((j) => {
+        const score = getJobMatchScore(
+          j,
+          diagnosis,
+          prefs?.autism_level,
+          prefs?.city ?? profile?.city,
+          prefs?.sector ?? profile?.sector
+        );
+        return (
+          jobMatchesDiagnosis(j, diagnosis) ||
+          score >= DIAGNOSIS_FILTER_MIN_SCORE
+        );
+      }).length
     : jobs.length;
 
   return (

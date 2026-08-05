@@ -69,7 +69,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       pathname === "/onboarding" &&
       user &&
       onboardingComplete &&
-      !request.nextUrl.searchParams.has("update")
+      request.nextUrl.searchParams.get("update") !== "1"
     ) {
       return withSessionCookies(
         NextResponse.redirect(new URL("/dashboard", request.url)),
@@ -105,6 +105,15 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
     return response;
   } catch {
+    if (
+      pathname.startsWith("/dashboard") ||
+      pathname.startsWith("/admin") ||
+      pathname === "/onboarding"
+    ) {
+      const loginUrl = new URL("/auth/login", request.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
     return NextResponse.next();
   }
 }

@@ -18,6 +18,7 @@ import {
   checkStaleNewJobsAlert,
   recordSourceFailure,
   recordSourceSuccess,
+  SourceSkippedError,
 } from "@/lib/jobs/sync-health";
 import { verifyJobPage } from "@/lib/jobs/verify-job-page";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -86,6 +87,10 @@ async function runSource(
     await recordSourceSuccess(source, rows.length);
     return { source, prefix, rows, ok: true };
   } catch (err) {
+    if (err instanceof SourceSkippedError) {
+      logger.warn("Job source skipped on this host", { source });
+      return { source, prefix, rows: [], ok: false };
+    }
     const message = err instanceof Error ? err.message : String(err);
     await recordSourceFailure(source, message);
     logger.warn("Job source sync failed", { source, error: message });
@@ -113,11 +118,7 @@ async function deactivateStaleForPrefix(
 
   if (staleSlugs.length === 0) return;
 
-  const { error } = await supabase
-    .from("jobs")
-    .update({ active: false })
-    .in("slug", staleSlugs);
-  if (error) throw error;
+  await deactivateBySlugs(staleSlugs);
 }
 
 async function deactivateBySlugs(slugs: string[]): Promise<void> {
@@ -203,11 +204,7 @@ async function deactivateUnseenOlderThan(
 
   if (staleSlugs.length === 0) return 0;
 
-  const { error } = await supabase
-    .from("jobs")
-    .update({ active: false })
-    .in("slug", staleSlugs);
-  if (error) throw error;
+  await deactivateBySlugs(staleSlugs);
 
   logger.warn("Deactivated unseen jobs by age", {
     prefix,
@@ -223,20 +220,27 @@ async function upsertJobsWithTimestamps(rows: SyncJobRow[]): Promise<number> {
   const supabase = createAdminClient();
   const slugs = rows.map((r) => r.slug);
 
-  const { data: existing } = await supabase
-    .from("jobs")
-    .select("slug, first_seen_at, created_at")
-    .in("slug", slugs);
-
-  const existingMap = new Map(
-    (existing ?? []).map((e) => [
-      e.slug,
-      {
-        firstSeen: e.first_seen_at as string,
-        createdAt: e.created_at as string,
-      },
-    ])
-  );
+  const existingMap = new Map<
+    string,
+    { firstSeen: string; createdAt: string }
+  >();
+  const chunkSize = 80;
+  for (let i = 0; i < slugs.length; i += chunkSize) {
+    const chunk = slugs.slice(i, i + chunkSize);
+    const { data: existing, error: selectErr } = await supabase
+      .from("jobs")
+      .select("slug, first_seen_at, created_at")
+      .in("slug", chunk);
+    if (selectErr) throw selectErr;
+    for (const e of existing ?? []) {
+      if (typeof e.first_seen_at === "string" && typeof e.created_at === "string") {
+        existingMap.set(e.slug, {
+          firstSeen: e.first_seen_at,
+          createdAt: e.created_at,
+        });
+      }
+    }
+  }
 
   const now = new Date().toISOString();
   let newCount = 0;
@@ -256,10 +260,14 @@ async function upsertJobsWithTimestamps(rows: SyncJobRow[]): Promise<number> {
     };
   });
 
-  const { error } = await supabase.from("jobs").upsert(payload, {
-    onConflict: "slug",
-  });
-  if (error) throw error;
+  const upsertChunkSize = 50;
+  for (let i = 0; i < payload.length; i += upsertChunkSize) {
+    const chunk = payload.slice(i, i + upsertChunkSize);
+    const { error } = await supabase.from("jobs").upsert(chunk, {
+      onConflict: "slug",
+    });
+    if (error) throw error;
+  }
 
   return newCount;
 }
@@ -278,10 +286,9 @@ async function persistSource(result: SourceResult): Promise<number> {
     return result.rows.length;
   }
 
-  // 0 משרות — לא משאירים זומבים לנצח; משביתים רק מה שלא נראה STALE_AGE_DAYS
-  await deactivateUnseenOlderThan(result.prefix, STALE_AGE_DAYS_ON_EMPTY);
-
+  // 0 משרות ממקור תקין — age-out; skip/failure לא מכבים משרות קיימות
   if (result.ok) {
+    await deactivateUnseenOlderThan(result.prefix, STALE_AGE_DAYS_ON_EMPTY);
     logger.warn("Job sync: source returned 0 jobs", { source: result.source });
   }
 

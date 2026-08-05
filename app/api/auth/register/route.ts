@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 import { createRouteHandlerClient } from "@/lib/supabase/route-handler";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
@@ -33,6 +34,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     const { email, password, fullName, interests } = parsed.data;
+
+    const rate = checkRateLimit(`register:${getClientIp(request)}`, 5, 60 * 60_000);
+    if (!rate.ok) return rateLimitResponse(rate.retryAfterSec);
+
     const parts = fullName?.trim().split(/\s+/) ?? [];
     const firstName = parts[0] ?? "";
     const lastName = parts.slice(1).join(" ");

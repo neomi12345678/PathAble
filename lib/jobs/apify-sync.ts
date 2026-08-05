@@ -4,6 +4,7 @@ import {
   type SyncJobRow,
 } from "@/lib/jobs/job-posting";
 import { isPlaceholderCompany } from "@/lib/jobs/dedup";
+import { SourceSkippedError } from "@/lib/jobs/sync-health";
 import { logger } from "@/lib/logger";
 
 interface ApifyJobItem {
@@ -25,6 +26,26 @@ const APIFY_SEARCH_KEYWORDS = [
   "תמיכה טכנית",
   "frontend",
   "ניתוח נתונים",
+  "backend",
+  "devops",
+  "שיווק דיגיטל",
+  "מכירות",
+  "שירות לקוחות",
+  "משאבי אנוש",
+  "לוגיסטיקה",
+  "רכש",
+  "סיעוד",
+  "מורה",
+  "עורך דין",
+  "הנדסאי",
+  "ייצור",
+  "מלונאות",
+  "product manager",
+  "data analyst",
+  "helpdesk",
+  "ביקורת",
+  "פיזיותרפיה",
+  "מוקד",
 ] as const;
 
 /** AllJobs / JobMaster / JobNet — דרך Apify (WAF) */
@@ -118,13 +139,19 @@ export async function syncApifyJobs(): Promise<SyncJobRow[]> {
     logger.warn("Apify skipped on this host (use GitHub Actions)", {
       vercel: process.env.VERCEL === "1",
     });
-    return [];
+    throw new SourceSkippedError("apify");
   }
 
   const token = process.env.APIFY_TOKEN?.trim();
-  if (!token) return [];
+  if (!token) {
+    if (process.env.GITHUB_ACTIONS === "true") {
+      throw new Error("APIFY_TOKEN is required in GitHub Actions");
+    }
+    throw new SourceSkippedError("apify");
+  }
 
   const bySlug = new Map<string, SyncJobRow>();
+  let failedKeywords = 0;
 
   for (const keyword of APIFY_SEARCH_KEYWORDS) {
     try {
@@ -134,11 +161,16 @@ export async function syncApifyJobs(): Promise<SyncJobRow[]> {
         if (row) bySlug.set(row.slug, row);
       }
     } catch (err) {
+      failedKeywords += 1;
       logger.warn("Apify job sync keyword failed", {
         keyword,
         error: err instanceof Error ? err.message : String(err),
       });
     }
+  }
+
+  if (bySlug.size === 0 && failedKeywords === APIFY_SEARCH_KEYWORDS.length) {
+    throw new Error("Apify sync failed for all keywords");
   }
 
   return [...bySlug.values()];

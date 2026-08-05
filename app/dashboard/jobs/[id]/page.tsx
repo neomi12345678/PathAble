@@ -4,7 +4,12 @@ import { notFound } from "next/navigation";
 import { APP_NAME, JOBS } from "@/utils/texts";
 import { getJobById, getProfilePrefs, getProfessionById } from "@/lib/data";
 import { getJobMatchScore } from "@/lib/disability-matching";
+import { getJobCategoryLabel } from "@/lib/jobs/job-categories";
+import { SupportLevelBadge } from "@/components/jobs/SupportLevelBadge";
+import { JobStructuredPanel } from "@/components/jobs/JobStructuredPanel";
+import { SaveJobButton } from "@/components/jobs/SaveJobButton";
 import { jobIdSchema } from "@/utils/validation";
+import { getSavedJobIds } from "@/lib/data";
 
 interface JobDetailPageProps {
   params: { id: string };
@@ -45,9 +50,10 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
   const job = await getJobById(idResult.data);
   if (!job) notFound();
 
-  const [prefs, profession] = await Promise.all([
+  const [prefs, profession, savedJobIds] = await Promise.all([
     getProfilePrefs(),
     job.profession_id ? getProfessionById(job.profession_id) : Promise.resolve(null),
+    getSavedJobIds(),
   ]);
 
   const diagnosis = prefs?.disability_type?.trim() ?? "";
@@ -86,11 +92,23 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
                 <p className="mt-2 text-sm font-bold text-on-surface-variant">
                   {job.company} · {job.city}
                 </p>
+                <p className="mt-1 text-xs font-bold text-violet-700">
+                  {getJobCategoryLabel(job.category)}
+                </p>
               </div>
             </div>
-            <span className="rounded-full bg-emerald-100 px-4 py-1.5 text-sm font-black text-emerald-800">
-              {matchScore}% {JOBS.matchLabel}
-            </span>
+            {diagnosis ? (
+              <span className="rounded-full bg-emerald-100 px-4 py-1.5 text-sm font-black text-emerald-800">
+                {matchScore}% {JOBS.matchLabel}
+              </span>
+            ) : (
+              <Link
+                href="/onboarding?update=1"
+                className="rounded-full bg-slate-100 px-4 py-1.5 text-sm font-bold text-outline hover:bg-slate-200"
+              >
+                השלם/י פרופיל לציון התאמה
+              </Link>
+            )}
           </div>
 
           {job.created_at && (
@@ -101,12 +119,19 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
         </div>
 
         <div className="flex flex-col gap-6 p-6 md:p-8">
-          <section className="rounded-2xl bg-primary/5 px-4 py-3">
-            <p className="text-sm leading-relaxed text-primary">
-              <span className="font-black">{JOBS.whyFits}: </span>
-              {job.autism_match_reason}
-            </p>
-          </section>
+          <JobStructuredPanel
+            details={job.structured_details}
+            salary={job.salary}
+          />
+
+          {job.autism_match_reason && (
+            <section className="rounded-2xl bg-primary/5 px-4 py-3">
+              <p className="text-sm leading-relaxed text-primary">
+                <span className="font-black">{JOBS.whyFits}: </span>
+                {job.autism_match_reason}
+              </p>
+            </section>
+          )}
 
           <section>
             <h2 className="mb-3 font-display text-lg font-bold text-on-surface">
@@ -118,6 +143,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
           </section>
 
           <section className="flex flex-wrap gap-2">
+            <SupportLevelBadge level={job.support_level} className="text-xs" />
             <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
               <span className="material-symbols-outlined text-sm">groups</span>
               {JOBS.socialLevel}: {job.social_interaction_level}
@@ -149,13 +175,6 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
             ))}
           </section>
 
-          <section className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4">
-            <p className="text-xs font-bold text-outline">שכר מוצהר</p>
-            <p className="font-display text-xl font-black text-on-surface">
-              {job.salary}
-            </p>
-          </section>
-
           {profession && (
             <Link
               href={`/dashboard/professions/${profession.id}`}
@@ -166,16 +185,20 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
           )}
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/80 p-6 md:flex-row md:p-8">
+        <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/80 p-6 md:flex-row md:items-center md:p-8">
           <a
             href={job.apply_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-bold text-white shadow-md shadow-primary/20 transition-all hover:brightness-110 active:scale-95"
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-bold text-white shadow-md shadow-primary/20 transition-colors hover:brightness-110"
           >
             {JOBS.applyExternal}
             <span className="material-symbols-outlined text-base">open_in_new</span>
           </a>
+          <SaveJobButton
+            jobId={job.id}
+            initialSaved={savedJobIds.includes(job.id)}
+          />
           <p className="text-center text-xs leading-relaxed text-on-surface-variant md:max-w-xs md:text-right">
             קישור ישיר למשרה בדרושים IL — לא לדף חיפוש כללי.
           </p>

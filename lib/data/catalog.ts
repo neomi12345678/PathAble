@@ -2,7 +2,17 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, tryCreateAdminClient } from "@/lib/supabase/admin";
 import { enrichDisabilityFit, stripHtml } from "@/lib/jobs/job-posting";
+import {
+  inferJobCategory,
+  isJobCategoryId,
+} from "@/lib/jobs/job-categories";
+import {
+  inferSupportLevel,
+  isSupportLevel,
+} from "@/lib/jobs/support-level";
+import { extractJobStructuredDetails } from "@/lib/jobs/job-details-extract";
 import { triggerJobSyncIfStale } from "@/lib/jobs/auto-sync";
+import { logger } from "@/lib/logger";
 import type { Job, Profession, Question } from "@/types";
 
 function mapJobRow(row: {
@@ -23,6 +33,8 @@ function mapJobRow(row: {
   autism_match_reason: string | null;
   disability_fit: string[] | null;
   profession_id: string | null;
+  category?: string | null;
+  support_level?: string | null;
 }): Job {
   const socialLevel = row.social_interaction_level ?? "בינוני";
   const description = stripHtml(row.description ?? "");
@@ -33,6 +45,20 @@ function mapJobRow(row: {
     row.work_from_home,
     socialLevel,
     row.disability_fit ?? []
+  );
+  const category =
+    row.category && isJobCategoryId(row.category)
+      ? row.category
+      : inferJobCategory(row.title, description);
+  const supportLevel =
+    row.support_level && isSupportLevel(row.support_level)
+      ? row.support_level
+      : inferSupportLevel(row.title, description);
+  const structured_details = extractJobStructuredDetails(
+    row.title,
+    row.city,
+    description,
+    row.work_from_home
   );
 
   return {
@@ -53,6 +79,9 @@ function mapJobRow(row: {
     autism_match_reason: autismReason,
     disability_fit: disabilityFit,
     profession_id: row.profession_id ?? undefined,
+    category,
+    support_level: supportLevel,
+    structured_details,
   };
 }
 export async function getProfessionsFromDb(): Promise<Profession[]> {
@@ -62,7 +91,11 @@ export async function getProfessionsFromDb(): Promise<Profession[]> {
     .from("professions")
     .select("*")
     .eq("active", true);
-  if (error || !data) return [];
+  if (error) {
+    logger.error("getProfessionsFromDb failed", { error: error.message });
+    throw new Error(error.message);
+  }
+  if (!data) return [];
   return data.map((row) => ({
     id: row.slug,
     name: row.name,
@@ -75,6 +108,10 @@ export async function getProfessionsFromDb(): Promise<Profession[]> {
     disability_fit: row.disability_fit,
     video_url: row.video_url,
     active: row.active,
+    category:
+      row.category && isJobCategoryId(row.category)
+        ? row.category
+        : inferJobCategory(row.name, row.description),
   }));
 }
 
@@ -101,6 +138,10 @@ export async function getProfessionByIdFromDb(
     disability_fit: data.disability_fit,
     video_url: data.video_url,
     active: data.active,
+    category:
+      data.category && isJobCategoryId(data.category)
+        ? data.category
+        : inferJobCategory(data.name, data.description),
   };
 }
 
@@ -122,7 +163,11 @@ export async function getJobsFromDb(filters?: {
   if (filters?.accessibility !== undefined)
     query = query.eq("accessibility", filters.accessibility);
   const { data, error } = await query;
-  if (error || !data) return [];
+  if (error) {
+    logger.error("getJobsFromDb failed", { error: error.message });
+    throw new Error(error.message);
+  }
+  if (!data) return [];
   return data.map(mapJobRow);
 }
 
@@ -201,5 +246,48 @@ export async function setSavedProfessionInDb(
   const { error } = await supabase
     .from("saved_professions")
     .insert({ user_id: userId, profession_slug: professionSlug });
+  if (error) throw new Error(error.message);
+}
+
+export async function getSavedJobIdsFromDb(userId: string): Promise<string[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("saved_jobs")
+    .select("job_slug")
+    .eq("user_id", userId);
+  if (error || !data) return [];
+  return data.map((r) => r.job_slug);
+}
+
+export async function setSavedJobInDb(
+  userId: string,
+  jobSlug: string,
+  saved: boolean
+): Promise<void> {
+  if (!isSupabaseConfigured()) throw new Error("Supabase not configured");
+  const supabase = createAdminClient();
+
+  if (!saved) {
+    const { error } = await supabase
+      .from("saved_jobs")
+      .delete()
+      .eq("user_id", userId)
+      .eq("job_slug", jobSlug);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  const { data: existing } = await supabase
+    .from("saved_jobs")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("job_slug", jobSlug)
+    .maybeSingle();
+  if (existing) return;
+
+  const { error } = await supabase
+    .from("saved_jobs")
+    .insert({ user_id: userId, job_slug: jobSlug });
   if (error) throw new Error(error.message);
 }

@@ -2,17 +2,6 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
-function isOnboardingCompleteFromMeta(
-  metadata: Record<string, unknown> | undefined
-): boolean {
-  const disability = metadata?.disability_type;
-  return (
-    metadata?.onboarding_complete === true &&
-    typeof disability === "string" &&
-    disability.trim().length > 0
-  );
-}
-
 export async function updateSession(request: NextRequest): Promise<{
   response: NextResponse;
   user: { id: string; email?: string } | null;
@@ -58,13 +47,6 @@ export async function updateSession(request: NextRequest): Promise<{
   let role = "user";
 
   if (user) {
-    const metadata = user.user_metadata as Record<string, unknown> | undefined;
-    if (isOnboardingCompleteFromMeta(metadata)) {
-      onboardingComplete = true;
-      role =
-        typeof metadata?.role === "string" ? metadata.role : role;
-    }
-
     const { data: profile } = await supabase
       .from("profiles")
       .select("onboarding_complete, disability_type, role")
@@ -79,12 +61,6 @@ export async function updateSession(request: NextRequest): Promise<{
       onboardingComplete = true;
     }
     role = profile?.role ?? role;
-  }
-
-  const onboardedCookie =
-    request.cookies.get("pathable_onboarded")?.value === "1";
-  if (user && onboardedCookie) {
-    onboardingComplete = true;
   }
 
   return {

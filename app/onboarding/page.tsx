@@ -175,7 +175,7 @@ export default function OnboardingPage() {
       }
 
       toast.success("הפרופיל נשמר — ההתאמות מחושבות לפי האבחנה שלך");
-      window.location.href = "/dashboard/assessment";
+      window.location.href = isUpdate ? "/dashboard/profile" : "/dashboard/assessment";
     } catch {
       toast.error("שגיאה בשמירה, נסה שוב");
     } finally {

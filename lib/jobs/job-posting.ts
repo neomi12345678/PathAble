@@ -1,3 +1,9 @@
+import {
+  inferJobCategory,
+  type JobCategoryId,
+} from "@/lib/jobs/job-categories";
+import { inferSupportLevel, type SupportLevel } from "@/lib/jobs/support-level";
+
 const EMPLOYMENT_SCOPE: Record<string, string> = {
   FULL_TIME: "משרה מלאה",
   PART_TIME: "משרה חלקית",
@@ -83,11 +89,23 @@ function normalizeJobPageUrl(url: string): string {
   }
 }
 
+function isJobPostingType(type: unknown): boolean {
+  if (type === "JobPosting") return true;
+  if (Array.isArray(type)) {
+    return type.some(
+      (t) =>
+        t === "JobPosting" ||
+        (typeof t === "string" && t.endsWith("JobPosting"))
+    );
+  }
+  return typeof type === "string" && type.endsWith("JobPosting");
+}
+
 function extractJobPostingsFromJson(json: unknown): JobPostingJson[] {
   if (!json || typeof json !== "object") return [];
 
   const record = json as Record<string, unknown>;
-  if (record["@type"] === "JobPosting") {
+  if (isJobPostingType(record["@type"])) {
     return [record as JobPostingJson];
   }
 
@@ -185,6 +203,19 @@ function inferCity(posting: JobPostingJson): string {
     .filter((v): v is string => Boolean(v));
   const unique = [...new Set(localities)];
   return unique.length > 0 ? unique.join(" · ") : "ישראל";
+}
+
+function inferAccessibility(description: string): boolean {
+  return /נגיש|accessibility|accessible|התאמות נגישות|משרד נגיש/i.test(
+    description
+  );
+}
+
+function parseIsoDate(value: string | undefined, fallback: string): string {
+  if (!value?.trim()) return fallback;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return fallback;
+  return d.toISOString();
 }
 
 function inferWorkFromHome(city: string, description: string): boolean {
@@ -298,6 +329,8 @@ export interface SyncJobRow {
   first_seen_at?: string;
   last_seen_at?: string;
   last_verified_at?: string;
+  category: JobCategoryId;
+  support_level: SupportLevel;
 }
 
 export function mapJobPostingToRow(
@@ -339,11 +372,8 @@ export function mapJobPostingToRow(
 
   const scope = EMPLOYMENT_SCOPE[posting.employmentType ?? ""] ?? "משרה מלאה";
 
-  const createdAt = posting.datePosted
-    ? new Date(posting.datePosted).toISOString()
-    : new Date().toISOString();
-
   const now = new Date().toISOString();
+  const createdAt = parseIsoDate(posting.datePosted, now);
 
   return {
     slug,
@@ -354,7 +384,7 @@ export function mapJobPostingToRow(
     salary,
     apply_url: applyUrl,
     work_from_home: workFromHome,
-    accessibility: true,
+    accessibility: inferAccessibility(description),
     scope,
     social_interaction_level: socialLevel,
     support_features: supportFeatures,
@@ -367,6 +397,8 @@ export function mapJobPostingToRow(
     first_seen_at: now,
     last_seen_at: now,
     last_verified_at: now,
+    category: inferJobCategory(title, description),
+    support_level: inferSupportLevel(title, description),
   };
 }
 

@@ -102,6 +102,7 @@ export interface Database {
           disability_fit: string[];
           video_url: string | null;
           active: boolean;
+          category: string;
         };
         Insert: Database["public"]["Tables"]["professions"]["Row"];
         Update: Partial<Database["public"]["Tables"]["professions"]["Row"]>;
@@ -125,6 +126,8 @@ export interface Database {
           profession_id: string | null;
           active: boolean;
           created_at: string;
+          category: string;
+          support_level: string;
         };
         Insert: {
           slug: string;
