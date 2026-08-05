@@ -77,18 +77,22 @@ async function runApifyKeyword(
   keyword: string,
   token: string
 ): Promise<ApifyJobItem[]> {
-  const endpoint = `https://api.apify.com/v2/acts/amrameng~israeli-job-boards-scraper/run-sync-get-dataset-items?token=${encodeURIComponent(token)}`;
+  const endpoint =
+    "https://api.apify.com/v2/acts/amrameng~israeli-job-boards-scraper/run-sync-get-dataset-items";
 
   const res = await fetch(endpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify({
       sources: [...APIFY_SOURCES],
       keywords: keyword,
       maxItemsPerSource: 12,
       maxPagesPerSource: 2,
     }),
-    signal: AbortSignal.timeout(240_000),
+    signal: AbortSignal.timeout(180_000),
   });
 
   if (!res.ok) {
@@ -99,8 +103,22 @@ async function runApifyKeyword(
   return Array.isArray(data) ? data : [];
 }
 
-/** סנכרון AllJobs / JobMaster / JobNet — דורש APIFY_TOKEN ב-Vercel */
+function shouldRunApifyOnThisHost(): boolean {
+  // Vercel Hobby — timeout צר; Apify רץ רק מ-GitHub Actions / מקומי
+  if (process.env.VERCEL === "1") return false;
+  if (process.env.SKIP_APIFY === "1") return false;
+  return true;
+}
+
+/** סנכרון AllJobs / JobMaster / JobNet — דורש APIFY_TOKEN; לא רץ על Vercel */
 export async function syncApifyJobs(): Promise<SyncJobRow[]> {
+  if (!shouldRunApifyOnThisHost()) {
+    logger.warn("Apify skipped on this host (use GitHub Actions)", {
+      vercel: process.env.VERCEL === "1",
+    });
+    return [];
+  }
+
   const token = process.env.APIFY_TOKEN?.trim();
   if (!token) return [];
 

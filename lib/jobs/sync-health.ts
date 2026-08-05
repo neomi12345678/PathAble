@@ -6,6 +6,7 @@ export interface SourceHealthEntry {
   lastSuccess: string | null;
   lastError: string | null;
   failCount: number;
+  emptyStreak: number;
 }
 
 export type SourceHealthMap = Record<string, SourceHealthEntry>;
@@ -21,14 +22,32 @@ export async function recordSourceSuccess(source: string, count: number): Promis
     .maybeSingle();
 
   const health = (data?.source_health as SourceHealthMap | null) ?? {};
-  health[source] = {
-    lastSuccess: new Date().toISOString(),
+  const prev = health[source] ?? {
+    lastSuccess: null,
     lastError: null,
     failCount: 0,
+    emptyStreak: 0,
   };
 
+  if (count > 0) {
+    health[source] = {
+      lastSuccess: new Date().toISOString(),
+      lastError: null,
+      failCount: 0,
+      emptyStreak: 0,
+    };
+  } else {
+    // 0 jobs ≠ בריא — לא מאפסים failCount, סופרים ריצות ריקות
+    health[source] = {
+      lastSuccess: prev.lastSuccess,
+      lastError: "source returned 0 jobs",
+      failCount: prev.failCount,
+      emptyStreak: (prev.emptyStreak ?? 0) + 1,
+    };
+  }
+
   await supabase.from("job_sync_meta").update({ source_health: health }).eq("id", 1);
-  logger.info("Job source OK", { source, count });
+  logger.warn("Job source sync result", { source, count });
 }
 
 export async function recordSourceFailure(source: string, error: string): Promise<void> {
@@ -42,11 +61,17 @@ export async function recordSourceFailure(source: string, error: string): Promis
     .maybeSingle();
 
   const health = (data?.source_health as SourceHealthMap | null) ?? {};
-  const prev = health[source] ?? { lastSuccess: null, lastError: null, failCount: 0 };
+  const prev = health[source] ?? {
+    lastSuccess: null,
+    lastError: null,
+    failCount: 0,
+    emptyStreak: 0,
+  };
   health[source] = {
     lastSuccess: prev.lastSuccess,
     lastError: error.slice(0, 500),
     failCount: prev.failCount + 1,
+    emptyStreak: (prev.emptyStreak ?? 0) + 1,
   };
 
   await supabase.from("job_sync_meta").update({ source_health: health }).eq("id", 1);

@@ -128,7 +128,7 @@ export function JobsBoard({
               {syncInProgress
                 ? "מעדכן משרות ברקע מדרושים ואתרים נוספים…"
                 : lastSyncedAt
-                  ? `עודכן אוטומטית ${timeAgo(lastSyncedAt)} · מתרענן כל 3 שעות`
+                  ? `עודכן אוטומטית ${timeAgo(lastSyncedAt)} · Cron יומי + רענון בכניסה`
                   : "משרות מתעדכנות אוטומטית מאתרי דרושים"}
             </span>
             {!profileLoading && diagnosis && (

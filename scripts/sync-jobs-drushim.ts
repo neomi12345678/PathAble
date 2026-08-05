@@ -1,19 +1,41 @@
 /**
- * Sync real job listings from Drushim.co.il into Supabase.
- * Run: npm run sync:jobs
- * (בפרודקשן רץ אוטומטית פעם ביום דרך Vercel Cron — ראו vercel.json)
+ * Sync jobs into Supabase.
+ * Local: npm run sync:jobs
+ * CI: npm run sync:jobs:ci (GitHub Actions)
+ * Production auto: Vercel Cron + GitHub Actions daily
  */
-// הערה: מכונת הפיתוח המקומית מריצה פרוקסי שמיירט TLS, ולכן אימות תעודות נכשל.
-// העקיפה חלה על סקריפטים מקומיים בלבד — קוד הפרודקשן לא מבטל אימות TLS.
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+if (
+  process.env.ALLOW_INSECURE_TLS === "1" &&
+  process.env.CI !== "true" &&
+  process.env.GITHUB_ACTIONS !== "true"
+) {
+  // מקומי בלבד — פרוקסי שמפריע ל-TLS. לא ב-CI/פרודקשן.
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+}
 
+import {
+  acquireSyncLockAtomic,
+  markSyncFailure,
+  markSyncSuccess,
+} from "../lib/jobs/sync-health";
 import { runJobSync } from "../lib/jobs/run-sync";
 
-runJobSync()
-  .then(({ synced, newJobs, fetchedBySource }) => {
+async function main(): Promise<void> {
+  const acquired = await acquireSyncLockAtomic();
+  if (!acquired) {
+    console.log("Sync already running — skipped");
+    return;
+  }
+
+  try {
+    const { synced, newJobs, fetchedBySource } = await runJobSync();
+    await markSyncSuccess(newJobs);
     console.log(`Synced ${synced} active jobs (${newJobs} new).`, fetchedBySource);
-  })
-  .catch((err: unknown) => {
+  } catch (err: unknown) {
+    await markSyncFailure();
     console.error("Job sync failed:", err);
     process.exit(1);
-  });
+  }
+}
+
+void main();

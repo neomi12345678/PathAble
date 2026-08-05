@@ -16,24 +16,33 @@ interface ApifyJobItem {
   source?: string;
 }
 
-/** GotFriends דרך Apify — fallback כש-Vercel מקבל 403 */
+/** GotFriends דרך Apify — fallback מחוץ ל-Vercel (GHA / מקומי) */
 export async function syncGotFriendsViaApify(): Promise<SyncJobRow[]> {
+  if (process.env.VERCEL === "1") {
+    logger.warn("GotFriends Apify fallback skipped on Vercel");
+    return [];
+  }
+
   const token = process.env.APIFY_TOKEN?.trim();
   if (!token) return [];
 
-  const endpoint = `https://api.apify.com/v2/acts/amrameng~israeli-job-boards-scraper/run-sync-get-dataset-items?token=${encodeURIComponent(token)}`;
+  const endpoint =
+    "https://api.apify.com/v2/acts/amrameng~israeli-job-boards-scraper/run-sync-get-dataset-items";
 
   try {
     const res = await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({
         sources: ["gotfriends"],
         keywords: "משרות",
         maxItemsPerSource: 60,
         maxPagesPerSource: 5,
       }),
-      signal: AbortSignal.timeout(240_000),
+      signal: AbortSignal.timeout(180_000),
     });
 
     if (!res.ok) {
@@ -73,7 +82,12 @@ export async function syncGotFriendsViaApify(): Promise<SyncJobRow[]> {
 
       if (!slug) continue;
 
-      const company = item.company?.trim() || "Gotfriends";
+      const company = item.company?.trim();
+      if (!company || /^gotfriends$/i.test(company)) {
+        // בלי שם חברה אמיתי — דילוג (מזהם dedup)
+        continue;
+      }
+
       const description =
         item.description?.trim() ||
         `${title}. ${item.location?.trim() ?? "ישראל"}.`.trim();

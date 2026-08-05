@@ -5,6 +5,7 @@ import {
   type SyncJobRow,
 } from "@/lib/jobs/job-posting";
 import { USER_AGENT } from "@/lib/jobs/http-fetch";
+import { logger } from "@/lib/logger";
 
 interface GreenhouseJob {
   id: number;
@@ -21,26 +22,20 @@ interface GreenhouseBoard {
   company: string;
 }
 
-/** דפי Careers ישראליים/גלובליים דרך Greenhouse API */
+/** לוחות Greenhouse שעובדים (tokens שחזרו 404 הוסרו) */
 const GREENHOUSE_BOARDS: GreenhouseBoard[] = [
   { token: "gongio", company: "Gong" },
   { token: "riskified", company: "Riskified" },
   { token: "similarweb", company: "Similarweb" },
   { token: "lightricks", company: "Lightricks" },
-  { token: "mondaydotcom", company: "monday.com" },
-  { token: "walkme", company: "WalkMe" },
   { token: "taboola", company: "Taboola" },
-  { token: "outbrain", company: "Outbrain" },
-  { token: "fiverr", company: "Fiverr" },
-  { token: "wix", company: "Wix" },
 ];
 
 function isIsraelRelevant(location: string, content: string): boolean {
   const text = `${location} ${stripHtml(content)}`.toLowerCase();
-  return (
-    /israel|tel aviv|tel-?aviv|herzliya|raanana|haifa|jerusalem|ירושלים|תל.?אביב|הרצליה|רעננה|חיפה|ישראל|remote/i.test(
-      text
-    ) || /remote|hybrid|מהבית/i.test(text)
+  // דורש סימן ישראל/עיר — לא רק "remote" גלובלי
+  return /israel|tel aviv|tel-?aviv|herzliya|raanana|haifa|jerusalem|ירושלים|תל.?אביב|הרצליה|רעננה|חיפה|ישראל/i.test(
+    text
   );
 }
 
@@ -88,6 +83,7 @@ async function fetchBoardJobs(board: GreenhouseBoard): Promise<SyncJobRow[]> {
 
 export async function syncGreenhouseJobs(): Promise<SyncJobRow[]> {
   const bySlug = new Map<string, SyncJobRow>();
+  const boardFailures: string[] = [];
 
   for (const board of GREENHOUSE_BOARDS) {
     try {
@@ -95,9 +91,20 @@ export async function syncGreenhouseJobs(): Promise<SyncJobRow[]> {
       for (const row of rows) {
         bySlug.set(row.slug, row);
       }
-    } catch {
-      // board unavailable — skip, health logged in run-sync
+    } catch (err) {
+      boardFailures.push(board.token);
+      logger.warn("Greenhouse board failed", {
+        board: board.token,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
+  }
+
+  if (boardFailures.length > 0) {
+    logger.warn("Greenhouse partial board failures", {
+      failed: boardFailures,
+      okBoards: GREENHOUSE_BOARDS.length - boardFailures.length,
+    });
   }
 
   return [...bySlug.values()];

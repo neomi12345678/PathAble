@@ -127,6 +127,48 @@ async function deactivateBySlugs(slugs: string[]): Promise<void> {
   if (error) throw error;
 }
 
+async function deactivateUnseenOlderThan(
+  prefix: string,
+  maxAgeDays: number
+): Promise<number> {
+  const supabase = createAdminClient();
+  const cutoff = new Date(
+    Date.now() - maxAgeDays * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  const { data: existing, error: selectErr } = await supabase
+    .from("jobs")
+    .select("slug, last_seen_at")
+    .eq("active", true)
+    .like("slug", `${prefix}%`);
+  if (selectErr) throw selectErr;
+
+  const staleSlugs =
+    existing
+      ?.filter((row) => {
+        const seen = row.last_seen_at
+          ? new Date(row.last_seen_at as string).getTime()
+          : 0;
+        return !seen || seen < new Date(cutoff).getTime();
+      })
+      .map((row) => row.slug) ?? [];
+
+  if (staleSlugs.length === 0) return 0;
+
+  const { error } = await supabase
+    .from("jobs")
+    .update({ active: false })
+    .in("slug", staleSlugs);
+  if (error) throw error;
+
+  logger.warn("Deactivated unseen jobs by age", {
+    prefix,
+    maxAgeDays,
+    count: staleSlugs.length,
+  });
+  return staleSlugs.length;
+}
+
 async function upsertJobsWithTimestamps(rows: SyncJobRow[]): Promise<number> {
   if (rows.length === 0) return 0;
 
@@ -135,24 +177,31 @@ async function upsertJobsWithTimestamps(rows: SyncJobRow[]): Promise<number> {
 
   const { data: existing } = await supabase
     .from("jobs")
-    .select("slug, first_seen_at")
+    .select("slug, first_seen_at, created_at")
     .in("slug", slugs);
 
-  const firstSeenMap = new Map(
-    (existing ?? []).map((e) => [e.slug, e.first_seen_at as string])
+  const existingMap = new Map(
+    (existing ?? []).map((e) => [
+      e.slug,
+      {
+        firstSeen: e.first_seen_at as string,
+        createdAt: e.created_at as string,
+      },
+    ])
   );
 
   const now = new Date().toISOString();
   let newCount = 0;
 
   const payload = rows.map((row) => {
-    const priorFirst = firstSeenMap.get(row.slug);
-    if (!priorFirst) newCount += 1;
+    const prior = existingMap.get(row.slug);
+    if (!prior) newCount += 1;
     const dedupeKey = row.dedupe_key ?? computeDedupeKey(row);
     return {
       ...row,
       dedupe_key: dedupeKey,
-      first_seen_at: priorFirst ?? row.first_seen_at ?? now,
+      first_seen_at: prior?.firstSeen ?? row.first_seen_at ?? now,
+      created_at: prior?.createdAt ?? row.created_at ?? now,
       last_seen_at: now,
       last_verified_at: row.last_verified_at ?? now,
       active: true,
@@ -167,23 +216,28 @@ async function upsertJobsWithTimestamps(rows: SyncJobRow[]): Promise<number> {
   return newCount;
 }
 
+/** כמה ימים בלי last_seen לפני השבתה כשמקור מחזיר 0 */
+const STALE_AGE_DAYS_ON_EMPTY = 7;
+
 async function persistSource(result: SourceResult): Promise<number> {
-  if (!result.ok || result.rows.length === 0) {
-    if (result.ok) {
-      logger.warn("Job sync: source returned 0 jobs", { source: result.source });
-    }
-    return 0;
+  if (result.rows.length > 0) {
+    const slugs = result.rows.map((r) => r.slug);
+    await deactivateStaleForPrefix(result.prefix, slugs);
+    logger.warn("Job sync source complete", {
+      source: result.source,
+      synced: result.rows.length,
+    });
+    return result.rows.length;
   }
 
-  const slugs = result.rows.map((r) => r.slug);
-  await deactivateStaleForPrefix(result.prefix, slugs);
+  // 0 משרות — לא משאירים זומבים לנצח; משביתים רק מה שלא נראה STALE_AGE_DAYS
+  await deactivateUnseenOlderThan(result.prefix, STALE_AGE_DAYS_ON_EMPTY);
 
-  logger.info("Job sync source complete", {
-    source: result.source,
-    synced: result.rows.length,
-  });
+  if (result.ok) {
+    logger.warn("Job sync: source returned 0 jobs", { source: result.source });
+  }
 
-  return result.rows.length;
+  return 0;
 }
 
 /** סנכרון משרות מכל המקורות — רק משרות פעילות ועדכניות */
@@ -253,7 +307,7 @@ export async function runJobSync(): Promise<{
 
   await checkStaleNewJobsAlert();
 
-  logger.info("Job sync complete", { synced: total, newJobs, fetchedBySource });
+  logger.warn("Job sync complete", { synced: total, newJobs, fetchedBySource });
   return { synced: total, newJobs, fetchedBySource };
 }
 
