@@ -12,7 +12,7 @@ import { jobIdSchema } from "@/utils/validation";
 import { getSavedJobIds } from "@/lib/data";
 
 interface JobDetailPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 function formatPostedAt(iso: string): string {
@@ -32,7 +32,8 @@ function companyInitials(name: string): string {
 export async function generateMetadata({
   params,
 }: JobDetailPageProps): Promise<Metadata> {
-  const idResult = jobIdSchema.safeParse(params.id);
+  const { id } = await params;
+  const idResult = jobIdSchema.safeParse(id);
   if (!idResult.success) {
     return { title: `משרה לא נמצאה | ${APP_NAME}` };
   }
@@ -44,7 +45,8 @@ export async function generateMetadata({
 }
 
 export default async function JobDetailPage({ params }: JobDetailPageProps) {
-  const idResult = jobIdSchema.safeParse(params.id);
+  const { id } = await params;
+  const idResult = jobIdSchema.safeParse(id);
   if (!idResult.success) notFound();
 
   const job = await getJobById(idResult.data);

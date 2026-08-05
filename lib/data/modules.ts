@@ -24,7 +24,7 @@ interface SkillContentJson {
 }
 
 export async function getLearningModulesFromDb(): Promise<LearningModule[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("learning_modules")
     .select("*")
@@ -43,7 +43,7 @@ export async function getLearningModulesFromDb(): Promise<LearningModule[]> {
 export async function getLearningModuleByIdFromDb(
   id: string
 ): Promise<LearningModuleDetail | null> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("learning_modules")
     .select("*")
@@ -67,7 +67,7 @@ export async function getLearningModuleByIdFromDb(
 }
 
 export async function getSkillsModulesFromDb(): Promise<SkillsModule[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("skills_modules")
     .select("*")
@@ -85,7 +85,7 @@ export async function getSkillsModulesFromDb(): Promise<SkillsModule[]> {
 export async function getSkillModuleByIdFromDb(
   id: string
 ): Promise<SkillModuleDetail | null> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("skills_modules")
     .select("*")
@@ -108,7 +108,7 @@ export async function getUserProgressFromDb(
   userId: string,
   moduleType?: "learning" | "skill"
 ): Promise<UserProgress[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   let query = supabase.from("user_progress").select("*").eq("user_id", userId);
   if (moduleType) query = query.eq("module_type", moduleType);
   const { data, error } = await query;
@@ -132,7 +132,7 @@ export async function upsertUserProgress(
   completed: boolean,
   progressMeta?: Json
 ): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from("user_progress").upsert(
     {
       user_id: userId,
@@ -157,7 +157,7 @@ export async function getModuleProgressFromDb(
   moduleId: string,
   moduleType: "learning" | "skill"
 ): Promise<DbUserProgress | undefined> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("user_progress")
     .select("*")

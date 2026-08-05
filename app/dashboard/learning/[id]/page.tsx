@@ -12,7 +12,7 @@ import { courseImageForCategory } from "@/lib/assets/images";
 import { learningModuleIdSchema } from "@/utils/validation";
 
 interface LearningDetailPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 const RESOURCE_ICON: Record<LearningResource["type"], string> = {
@@ -31,7 +31,8 @@ function imageForModule(category: string, id: string): string {
 export async function generateMetadata({
   params,
 }: LearningDetailPageProps): Promise<Metadata> {
-  const idResult = learningModuleIdSchema.safeParse(params.id);
+  const { id } = await params;
+  const idResult = learningModuleIdSchema.safeParse(id);
   if (!idResult.success) {
     return { title: "מודול לא נמצא | עתיד מתאים" };
   }
@@ -47,7 +48,8 @@ export async function generateMetadata({
 export default async function LearningDetailPage({
   params,
 }: LearningDetailPageProps) {
-  const idResult = learningModuleIdSchema.safeParse(params.id);
+  const { id } = await params;
+  const idResult = learningModuleIdSchema.safeParse(id);
 
   if (!idResult.success) {
     notFound();

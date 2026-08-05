@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "@/types";
 import { SkeletonList } from "@/components/ui/Skeleton";
@@ -126,18 +127,18 @@ export function ChatInterface({ stats }: { stats: ChatStats }) {
                 {stats.completionPercent}%
               </p>
             </div>
-            <a href="/dashboard/professions" className="text-center">
+            <Link href="/dashboard/professions" className="text-center">
               <p className="text-[10px] font-bold text-on-surface-variant">מקצועות</p>
               <p className="font-display text-lg font-black text-secondary">
                 {stats.matchingProfessions}
               </p>
-            </a>
-            <a href="/dashboard/jobs" className="text-center">
+            </Link>
+            <Link href="/dashboard/jobs" className="text-center">
               <p className="text-[10px] font-bold text-on-surface-variant">משרות</p>
               <p className="font-display text-lg font-black text-primary">
                 {stats.matchingJobs}
               </p>
-            </a>
+            </Link>
           </div>
         )}
       </div>
@@ -180,7 +181,7 @@ export function ChatInterface({ stats }: { stats: ChatStats }) {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <a
+              <Link
                 href="/dashboard/professions"
                 className="sidebar-item flex flex-col items-center rounded-2xl border border-white/80 bg-white/60 p-5 text-center transition-all hover:border-secondary/40"
               >
@@ -195,8 +196,8 @@ export function ChatInterface({ stats }: { stats: ChatStats }) {
                 <p className="font-display text-2xl font-black text-secondary">
                   {stats.matchingProfessions}
                 </p>
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/dashboard/jobs"
                 className="sidebar-item flex flex-col items-center rounded-2xl border border-white/80 bg-white/60 p-5 text-center transition-all hover:border-primary/40"
               >
@@ -211,11 +212,11 @@ export function ChatInterface({ stats }: { stats: ChatStats }) {
                 <p className="font-display text-2xl font-black text-primary">
                   {stats.matchingJobs}
                 </p>
-              </a>
+              </Link>
             </div>
           </div>
           <div className="mt-auto w-full pt-8">
-            <a
+            <Link
               href="/dashboard/jobs"
               className="group flex w-full items-center justify-center gap-3 rounded-2xl bg-haredi-primary py-4 font-bold text-white shadow-xl shadow-primary/10 transition-all hover:bg-primary"
             >
@@ -223,7 +224,7 @@ export function ChatInterface({ stats }: { stats: ChatStats }) {
                 work
               </span>
               למשרות המותאמות לך
-            </a>
+            </Link>
           </div>
         </div>
       </aside>

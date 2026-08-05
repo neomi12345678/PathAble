@@ -40,7 +40,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (!rate.ok) return rateLimitResponse(rate.retryAfterSec);
 
     const response = NextResponse.json({ data: { success: true } });
-    const supabase = createRouteHandlerClient(response);
+    const supabase = await createRouteHandlerClient(response);
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,

@@ -26,7 +26,7 @@ export async function getRightsDataFromDb(): Promise<{
   faqs: RightsFaq[];
   organizations: RightsHelperOrg[];
 }> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const [topicsRes, faqsRes, orgsRes] = await Promise.all([
     supabase.from("rights_topics").select("*").order("order_index"),
     supabase.from("rights_faqs").select("*").order("order_index"),
@@ -56,7 +56,7 @@ export async function getRightsDataFromDb(): Promise<{
 export async function getAchievementBadgesFromDb(
   userId?: string
 ): Promise<AchievementBadge[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: badges, error } = await supabase
     .from("achievement_badges")
     .select("*");
@@ -83,7 +83,7 @@ export async function getAchievementBadgesFromDb(
 export async function getActivityFeedFromDb(
   userId: string
 ): Promise<ActivityFeedItem[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const [achievementsRes, progressRes, badgesRes] = await Promise.all([
     supabase
       .from("achievements")
@@ -147,7 +147,7 @@ function stepStatus(done: boolean, active: boolean): CareerStepStatus {
 }
 
 export async function getCareerPathFromDb(userId: string): Promise<CareerPath> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const [profileRes, assessmentRes, progressRes, savedRes] = await Promise.all([
     supabase
       .from("profiles")
@@ -224,7 +224,7 @@ export async function getCareerPathFromDb(userId: string): Promise<CareerPath> {
 export async function getLeaderboardFromDb(
   currentUserId?: string
 ): Promise<LeaderboardEntry[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: earned } = await supabase
     .from("achievements")
     .select("user_id");

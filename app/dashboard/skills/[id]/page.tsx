@@ -8,13 +8,14 @@ import { parseSkillProgressMeta } from "@/lib/data/modules";
 import { SkillExercise } from "@/components/skills/SkillExercise";
 
 interface SkillExercisePageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export async function generateMetadata({
   params,
 }: SkillExercisePageProps): Promise<Metadata> {
-  const detail = await getSkillModuleDetailAsync(params.id);
+  const { id } = await params;
+  const detail = await getSkillModuleDetailAsync(id);
   return {
     title: detail ? `תרגיל: ${detail.title} | עתיד מתאים` : "תרגיל לא נמצא",
   };
@@ -23,13 +24,14 @@ export async function generateMetadata({
 export default async function SkillExercisePage({
   params,
 }: SkillExercisePageProps) {
-  const detail = await getSkillModuleDetailAsync(params.id);
+  const { id } = await params;
+  const detail = await getSkillModuleDetailAsync(id);
 
   if (!detail) {
     notFound();
   }
 
-  const progress = await getSkillModuleProgressAsync(params.id);
+  const progress = await getSkillModuleProgressAsync(id);
   const meta = parseSkillProgressMeta(progress?.progress_meta ?? null);
 
   return (

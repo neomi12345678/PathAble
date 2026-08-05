@@ -14,13 +14,14 @@ import { IMAGES } from "@/lib/assets/images";
 import { SaveProfessionButton } from "@/components/professions/SaveProfessionButton";
 
 interface ProfessionDetailPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export async function generateMetadata({
   params,
 }: ProfessionDetailPageProps): Promise<Metadata> {
-  const idResult = professionIdSchema.safeParse(params.id);
+  const { id } = await params;
+  const idResult = professionIdSchema.safeParse(id);
   if (!idResult.success) {
     return { title: `מקצוע לא נמצא | ${APP_NAME}` };
   }
@@ -86,7 +87,8 @@ const PATHS = [
 export default async function ProfessionDetailPage({
   params,
 }: ProfessionDetailPageProps) {
-  const idResult = professionIdSchema.safeParse(params.id);
+  const { id } = await params;
+  const idResult = professionIdSchema.safeParse(id);
 
   if (!idResult.success) {
     notFound();

@@ -18,7 +18,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   const response = NextResponse.redirect(new URL(next, origin));
-  const supabase = createRouteHandlerClient(response);
+  const supabase = await createRouteHandlerClient(response);
 
   const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
