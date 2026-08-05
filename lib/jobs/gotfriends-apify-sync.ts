@@ -1,3 +1,4 @@
+import { isPlaceholderCompany } from "@/lib/jobs/dedup";
 import {
   mapJobPostingToRow,
   slugifyJobPath,
@@ -83,8 +84,7 @@ export async function syncGotFriendsViaApify(): Promise<SyncJobRow[]> {
       if (!slug) continue;
 
       const company = item.company?.trim();
-      if (!company || /^gotfriends$/i.test(company)) {
-        // בלי שם חברה אמיתי — דילוג (מזהם dedup)
+      if (!company || isPlaceholderCompany(company)) {
         continue;
       }
 

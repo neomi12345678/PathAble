@@ -127,6 +127,47 @@ async function deactivateBySlugs(slugs: string[]): Promise<void> {
   if (error) throw error;
 }
 
+async function deactivateDbDuplicatesByKey(winners: SyncJobRow[]): Promise<number> {
+  const keys = [
+    ...new Set(
+      winners
+        .map((w) => w.dedupe_key ?? computeDedupeKey(w))
+        .filter((k): k is string => Boolean(k))
+    ),
+  ];
+  if (keys.length === 0) return 0;
+
+  const winnerSlugs = new Set(winners.map((w) => w.slug));
+  const supabase = createAdminClient();
+
+  // PostgREST: .in עם רשימה ארוכה — מפצלים לבאטצ'ים
+  const chunkSize = 80;
+  const toDeactivate: string[] = [];
+
+  for (let i = 0; i < keys.length; i += chunkSize) {
+    const chunk = keys.slice(i, i + chunkSize);
+    const { data, error } = await supabase
+      .from("jobs")
+      .select("slug, dedupe_key")
+      .eq("active", true)
+      .in("dedupe_key", chunk);
+    if (error) throw error;
+
+    for (const row of data ?? []) {
+      if (!winnerSlugs.has(row.slug)) {
+        toDeactivate.push(row.slug);
+      }
+    }
+  }
+
+  if (toDeactivate.length === 0) return 0;
+  await deactivateBySlugs(toDeactivate);
+  logger.warn("Deactivated DB duplicates by dedupe_key", {
+    count: toDeactivate.length,
+  });
+  return toDeactivate.length;
+}
+
 async function deactivateUnseenOlderThan(
   prefix: string,
   maxAgeDays: number
@@ -297,6 +338,7 @@ export async function runJobSync(): Promise<{
 
   const newJobs = await upsertJobsWithTimestamps(winners);
   await deactivateBySlugs(duplicateSlugs);
+  await deactivateDbDuplicatesByKey(winners);
 
   const total = winners.length;
   const anyOk = sources.some((s) => s.ok && s.rows.length > 0);
@@ -307,7 +349,7 @@ export async function runJobSync(): Promise<{
 
   await checkStaleNewJobsAlert();
 
-  logger.warn("Job sync complete", { synced: total, newJobs, fetchedBySource });
+  logger.sync("Job sync complete", { synced: total, newJobs, fetchedBySource });
   return { synced: total, newJobs, fetchedBySource };
 }
 

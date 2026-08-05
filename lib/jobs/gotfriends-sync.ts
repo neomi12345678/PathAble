@@ -4,6 +4,7 @@ import {
   type FetchPageOptions,
 } from "@/lib/jobs/http-fetch";
 import { syncGotFriendsViaApify } from "@/lib/jobs/gotfriends-apify-sync";
+import { isPlaceholderCompany } from "@/lib/jobs/dedup";
 import {
   mapJobPostingToRow,
   slugifyJobPath,
@@ -209,7 +210,7 @@ export async function syncGotFriendsJobs(): Promise<SyncJobRow[]> {
         posting,
         "gotfriends"
       );
-      if (!row) {
+      if (!row || isPlaceholderCompany(row.company)) {
         bumpReason(otherFailures, "map_row_rejected");
         continue;
       }

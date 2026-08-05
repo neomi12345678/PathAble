@@ -27,4 +27,8 @@ export const logger = {
     log("warn", message, meta),
   error: (message: string, meta?: Record<string, unknown>): void =>
     log("error", message, meta),
+  /** תמיד נכתב גם בפרודקשן — לסיכומי סנכron */
+  sync: (message: string, meta?: Record<string, unknown>): void => {
+    console.warn(meta ? { message, ...meta } : { message });
+  },
 };

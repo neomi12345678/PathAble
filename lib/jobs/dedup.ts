@@ -1,5 +1,23 @@
 import type { SyncJobRow } from "@/lib/jobs/job-posting";
 
+const COMPANY_ALIASES: Record<string, string> = {
+  "monday com": "monday",
+  mondaydotcom: "monday",
+  "wix com": "wix",
+  gotfriends: "gotfriends",
+  "got friends": "gotfriends",
+};
+
+const GENERIC_CITIES = new Set([
+  "ישראל",
+  "israel",
+  "il",
+  "remote",
+  "hybrid",
+  "עבודה מהבית",
+  "מהבית",
+]);
+
 function normalizeToken(value: string): string {
   return value
     .toLowerCase()
@@ -8,23 +26,34 @@ function normalizeToken(value: string): string {
     .trim();
 }
 
-/** מפתח לזיהוי כפילויות: חברה + תפקיד + מיקום */
-export function computeDedupeKey(row: Pick<SyncJobRow, "company" | "title" | "city">): string {
-  const company = normalizeToken(row.company);
+function normalizeCompany(company: string): string {
+  const base = normalizeToken(company);
+  return COMPANY_ALIASES[base] ?? base;
+}
+
+function normalizeCity(city: string): string {
+  const primary = normalizeToken(city.split("·")[0] ?? city);
+  if (!primary || GENERIC_CITIES.has(primary)) return "*";
+  return primary;
+}
+
+/** מפתח לזיהוי כפילויות: חברה + תפקיד + מיקום (מיקום גנרי = *) */
+export function computeDedupeKey(
+  row: Pick<SyncJobRow, "company" | "title" | "city">
+): string {
+  const company = normalizeCompany(row.company);
   const title = normalizeToken(row.title);
-  const city = normalizeToken(row.city.split("·")[0] ?? row.city);
+  const city = normalizeCity(row.city);
   return `${company}|${title}|${city}`;
 }
 
 const SOURCE_PRIORITY: Record<string, number> = {
-  drushim: 1,
-  microsoft: 2,
-  greenhouse: 3,
-  gotfriends: 4,
-  alljobs: 5,
-  jobmaster: 6,
-  jobnet: 7,
-  lever: 8,
+  greenhouse: 1,
+  drushim: 2,
+  gotfriends: 3,
+  alljobs: 4,
+  jobmaster: 5,
+  jobnet: 6,
   unknown: 99,
 };
 
@@ -49,21 +78,35 @@ export function dedupeJobRows(rows: SyncJobRow[]): SyncJobRow[] {
   return [...winners.values()];
 }
 
-/** slugs של משרות שהפסידו ב-dedup וצריך להשבית */
+/** slugs של משרות בבאטץ' הנוכחי שהפסידו ב-dedup */
 export function findDuplicateSlugsToDeactivate(
   allRows: SyncJobRow[],
   winners: SyncJobRow[]
 ): string[] {
   const winnerSlugs = new Set(winners.map((w) => w.slug));
-  const winnerKeys = new Map(winners.map((w) => [w.dedupe_key, w.slug]));
+  const winnerKeys = new Map(
+    winners.map((w) => [w.dedupe_key ?? computeDedupeKey(w), w.slug])
+  );
 
   const deactivate = new Set<string>();
   for (const row of allRows) {
-    const key = computeDedupeKey(row);
+    const key = row.dedupe_key ?? computeDedupeKey(row);
     const winnerSlug = winnerKeys.get(key);
     if (winnerSlug && winnerSlug !== row.slug && !winnerSlugs.has(row.slug)) {
       deactivate.add(row.slug);
     }
   }
   return [...deactivate];
+}
+
+export function isPlaceholderCompany(company: string): boolean {
+  const n = normalizeToken(company);
+  return (
+    !n ||
+    n === "לא צוין" ||
+    n === "gotfriends" ||
+    n === "got friends" ||
+    n === "unknown" ||
+    n === "n a"
+  );
 }

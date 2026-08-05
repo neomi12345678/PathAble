@@ -3,6 +3,7 @@ import {
   slugifyJobPath,
   type SyncJobRow,
 } from "@/lib/jobs/job-posting";
+import { isPlaceholderCompany } from "@/lib/jobs/dedup";
 import { logger } from "@/lib/logger";
 
 interface ApifyJobItem {
@@ -54,6 +55,7 @@ function apifyItemToRow(item: ApifyJobItem): SyncJobRow | null {
   const url = item.url?.trim();
 
   if (!slug || !title || !url || !description) return null;
+  if (isPlaceholderCompany(company)) return null;
 
   const source = item.source?.toLowerCase() ?? "external";
   return mapJobPostingToRow(
